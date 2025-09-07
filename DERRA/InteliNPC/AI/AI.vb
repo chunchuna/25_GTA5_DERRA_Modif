@@ -261,8 +261,8 @@ Namespace InteliNPC.AI
             m_name = name
             nameLabel = New PedLabel(ped, name) With {.Visible = False}
             PedLabelProcessor.BeginProcess(nameLabel)
-            ped.Health = 100
-            ped.MaxHealth = 100
+            ped.Health = 300
+            ped.MaxHealth = 300
             ped.SetRagdollBlockingFlags(RagdollBlockingFlags.BulletImpact)
             ped.SetRagdollBlockingFlags(RagdollBlockingFlags.PlayerImpact)
             ped.SetRagdollBlockingFlags(RagdollBlockingFlags.RubberBullet)
@@ -270,6 +270,7 @@ Namespace InteliNPC.AI
             [Function].Call(Hash.STOP_PED_SPEAKING, ped, True)
             [Function].Call(Hash.DISABLE_PED_PAIN_AUDIO, ped, True)
             ped.CombatAbility = CombatAbility.Professional
+            ped.SetCombatAttribute(CombatAttributes.CanUseCover, False)
             Accuracy = 100
             ped.PedConfigFlags.SetConfigFlag(PedConfigFlagToggles.DisableHurt, True)
             ped.FiringPattern = FiringPattern.FullAuto
@@ -520,17 +521,7 @@ Namespace InteliNPC.AI
             End If
             'UI.Screen.ShowSubtitle($"{Ped.Health}/{Ped.MaxHealth}")
             '每次循环检测动作是否完成。
-            Dim can_start_next_decision As Boolean
-            If Ped.IsInCombat Then
-                If Ped.IsInCover OrElse Ped.IsGoingIntoCover Then
-                    can_start_next_decision = False
-                Else
-                    can_start_next_decision = True
-                End If
-            Else
-                can_start_next_decision = True
-            End If
-            If can_start_next_decision AndAlso current_action.IsCompleted() Then
+            If current_action.IsCompleted() Then
                 '动作完成，释放资源。
                 current_action.Dispose()
                 '根据马尔科夫链选择下一个动作
@@ -593,16 +584,16 @@ Namespace InteliNPC.AI
                 If killer?.AttachedBlip?.Exists() Then
                     Dim killer_name As String = BotFactory.GetBotNameByPed(killer)
                     If killer_name = Name Then
-                        Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>自杀了</font>", False)
+                        Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(139, 139, 139, 0.7)'>自杀了</font>", False)
                     Else
                         If String.IsNullOrWhiteSpace(killer_name) Then
                             Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了</font>", False)
                         Else
                             Dim killerBot = BotFactory.GetBotByPed(killer)
                             If killerBot IsNot Nothing Then
-                                Notification.PostTicker($" {killerBot.ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>杀了</font>  {Me.ColoredName} ", False)
+                                Notification.PostTicker($" {killerBot.ColoredName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName} ", False)
                             Else
-                                Notification.PostTicker($" {killer_name}  <font size='9' color='rgba(255,255,255,0.7)'>杀了</font>  {Me.ColoredName} ", False)
+                                Notification.PostTicker($" {killer_name}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName} ", False)
                             End If
                         End If
                     End If
@@ -612,7 +603,7 @@ Namespace InteliNPC.AI
                     If KilledByPlayer >= MaxBeKilledTimes Then
                         ExitGame()
                     Else
-                        Notification.PostTicker($" {PlayerName.DisplayName}  <font size='9' color='rgba(255,255,255,0.7)'>杀了</font>  {ColoredName} ", False)
+                        Notification.PostTicker($" {PlayerName.DisplayName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {ColoredName} ", False)
                         Versus.PlayerScore(Name) += 1
                         Versus.ShowScore(Ped, Name)
                         IsAlly = False

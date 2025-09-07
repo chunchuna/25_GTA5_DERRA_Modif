@@ -1,6 +1,7 @@
 ﻿Imports GTA
 Imports GTA.Math
 Imports GTA.UI
+Imports System
 
 Namespace InteliNPC.AI.Decisions
     Public Class PlayerCommandedDecision
@@ -36,27 +37,109 @@ Namespace InteliNPC.AI.Decisions
         End Function
         Private Class AttackAction
             Inherits BotAction
+            Implements ITickProcessable
+
             Private ReadOnly target As Ped
-            Private time As Integer
+            Private time As Integer ' For checking if stuck
+
+            Private Enum CombatState
+                Shooting
+                Strafing
+            End Enum
+
+            Private currentState As CombatState
+            Private stateEndTimestamp As Integer
+            Private Shared ReadOnly Rng As New Random()
+
             Public Sub New(target As Ped)
                 Me.target = target
             End Sub
 
             Public Overrides Sub Run()
-                Invoker.Ped.Task.Combat(target)
+                FrameTicker.Add(Me)
+                ' Start with shooting
+                SwitchToState(CombatState.Shooting)
             End Sub
 
-            Public Overrides Function IsCompleted() As Boolean
-                If target.IsDead Then
-                    Return True
-                ElseIf Not Invoker.Ped.IsInCombat Then
-                    Return True
-                ElseIf Not Invoker.PositionChanged Then
-                    time += 1
-                    Return time > 3
-                Else
-                    Return False
+            Private Sub SwitchToState(newState As CombatState)
+                currentState = newState
+
+                If Not target.Exists() OrElse target.IsDead OrElse Not Invoker.Ped.Exists() Then
+                    Return
                 End If
+
+                Invoker.Ped.Task.ClearAll() ' Clear previous tasks
+
+                Select Case currentState
+                    Case CombatState.Shooting
+                        ' Shoot one bullet, then wait a little
+                        stateEndTimestamp = Game.GameTime + 750 ' Total time in this state
+                        Invoker.Ped.Task.ShootAt(target, 250, FiringPattern.SingleShot)
+                    Case CombatState.Strafing
+                        ' Strafe for 1 to 2 seconds
+                        stateEndTimestamp = Game.GameTime + Rng.Next(1000, 2001)
+                        ' Alternate left and right
+                        Dim strafeDirection = If(Rng.Next(2) = 0, Invoker.Ped.RightVector, -Invoker.Ped.RightVector)
+                        Dim strafePosition = Invoker.Ped.Position + strafeDirection * 5.0F
+                        Invoker.Ped.Task.RunTo(strafePosition)
+                End Select
+            End Sub
+
+            Public Sub Process() Implements ITickProcessable.Process
+                If Not target.Exists() OrElse target.IsDead OrElse Not Invoker.Ped.Exists() Then
+                    Return
+                End If
+
+                ' Keep facing target while strafing
+                If currentState = CombatState.Strafing Then
+                    If target.Exists() Then
+                        Dim dir As Vector3 = (target.Position - Invoker.Ped.Position)
+                        dir.Normalize()
+                        Invoker.Ped.Heading = dir.ToHeading()
+                    End If
+                End If
+
+                If Game.GameTime >= stateEndTimestamp Then
+                    ' Time to switch state
+                    If currentState = CombatState.Shooting Then
+                        SwitchToState(CombatState.Strafing)
+                    Else
+                        SwitchToState(CombatState.Shooting)
+                    End If
+                End If
+            End Sub
+
+            Public Overrides Sub Dispose()
+                ' FrameTicker removes automatically via CanBeRemoved
+                If Invoker.Ped.Exists() Then
+                    Invoker.Ped.Task.ClearAll()
+                End If
+            End Sub
+
+            Public Function CanBeRemoved() As Boolean Implements ITickProcessable.CanBeRemoved
+                Return IsCompleted()
+            End Function
+
+            Public Overrides Function IsCompleted() As Boolean
+                If target Is Nothing OrElse Not target.Exists() OrElse target.IsDead Then
+                    Return True
+                End If
+
+                If Not Invoker.Ped.Exists() OrElse Not Invoker.Ped.IsAlive OrElse Not Invoker.Ped.IsInCombat Then
+                    Return True
+                End If
+
+                ' If the ped gets stuck, end the action.
+                If Not Invoker.PositionChanged Then
+                    time += 1
+                    If time > 60 Then ' stuck for about 1 second (assuming 60fps)
+                        Return True
+                    End If
+                Else
+                    time = 0
+                End If
+
+                Return False
             End Function
         End Class
     End Class

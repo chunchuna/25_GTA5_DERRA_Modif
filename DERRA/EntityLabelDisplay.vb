@@ -74,7 +74,7 @@ Namespace EntityLabelDisplay
                 End If
                 Dim head_position As Vector3 = item.Target.Bones.Item(Bone.IKHead).Position ' + (Ped.Velocity * Game.FPS)
                 ' Adjusted position higher to accommodate larger text (0.6 -> 1.0)
-                [Function].Call(Hash.SET_DRAW_ORIGIN, head_position.X, head_position.Y, head_position.Z + 2.1, 0)
+                [Function].Call(Hash.SET_DRAW_ORIGIN, head_position.X, head_position.Y, head_position.Z + 1.75, 0)
                 Dim sizeOffset As Single = System.Math.Max(1.0F - ((GameplayCamera.Position - item.Target.Position).Length() / 30.0F), 0.3F)
                 ' Doubled the size (0.4 -> 0.8)
                 Dim text As ScaledText = New ScaledText(New PointF(0, 0), item.LabelText, 0.8 * sizeOffset, UI.Font.ChaletLondon)
