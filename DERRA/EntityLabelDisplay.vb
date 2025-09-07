@@ -10,7 +10,7 @@ Namespace EntityLabelDisplay
     Public Class PedLabel
         Private ReadOnly m_target As Ped
         Private m_labelText As String
-        Private m_labelColor As Color = Color.WhiteSmoke
+        Private m_labelColor As Color = Color.FromArgb(192, Color.WhiteSmoke) ' Changed to 75% opacity (192/255)
         Private m_visible As Boolean = True
         Public Sub New(target As Ped, labelText As String)
             Me.m_target = target
@@ -35,7 +35,8 @@ Namespace EntityLabelDisplay
                 Return m_labelColor
             End Get
             Set(value As Color)
-                m_labelColor = value
+                ' Ensure 75% opacity (192/255) is maintained when color is set
+                m_labelColor = Color.FromArgb(192, value)
             End Set
         End Property
         Public Property Visible As Boolean
@@ -72,9 +73,11 @@ Namespace EntityLabelDisplay
                     Continue For
                 End If
                 Dim head_position As Vector3 = item.Target.Bones.Item(Bone.IKHead).Position ' + (Ped.Velocity * Game.FPS)
-                [Function].Call(Hash.SET_DRAW_ORIGIN, head_position.X, head_position.Y, head_position.Z + 0.6, 0)
+                ' Adjusted position higher to accommodate larger text (0.6 -> 1.0)
+                [Function].Call(Hash.SET_DRAW_ORIGIN, head_position.X, head_position.Y, head_position.Z + 2.1, 0)
                 Dim sizeOffset As Single = System.Math.Max(1.0F - ((GameplayCamera.Position - item.Target.Position).Length() / 30.0F), 0.3F)
-                Dim text As ScaledText = New ScaledText(New PointF(0, 0), item.LabelText, 0.4 * sizeOffset, UI.Font.ChaletLondon)
+                ' Doubled the size (0.4 -> 0.8)
+                Dim text As ScaledText = New ScaledText(New PointF(0, 0), item.LabelText, 0.8 * sizeOffset, UI.Font.ChaletLondon)
                 text.Outline = True
                 text.Alignment = Alignment.Center
                 text.Color = item.LabelColor 'Drawing.Color.WhiteSmoke

@@ -231,7 +231,8 @@ Namespace InteliNPC.AI
         Private m_nameColorPrefix As String
 
         Public Function GetNameColor() As System.Drawing.Color
-            Return m_nameColor
+            ' Return color with 75% opacity (192/255)
+            Return Color.FromArgb(192, m_nameColor)
         End Function
 
         Public ReadOnly Property ColoredName As String
@@ -336,7 +337,7 @@ Namespace InteliNPC.AI
         End Sub
         Public Sub ExitGame()
             hasExitGame = True
-            Notification.PostTicker($"~h~{Name}~h~ <font size='11'>已离开</font>", False)
+            Notification.PostTicker($"~h~{Name}~h~ <font size='11' color='rgba(255,255,255,0.8)'>已离开</font>", False)
         End Sub
         Public ReadOnly Property CurrentActionName As String
             Get
@@ -590,16 +591,16 @@ Namespace InteliNPC.AI
                 If killer?.AttachedBlip?.Exists() Then
                     Dim killer_name As String = BotFactory.GetBotNameByPed(killer)
                     If killer_name = Name Then
-                        Notification.PostTicker($"~h~{ColoredName}~h~ <font size='11'>自杀了</font>", False)
+                        Notification.PostTicker($"~h~{ColoredName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>自杀了</font>", False)
                     Else
                         If String.IsNullOrWhiteSpace(killer_name) Then
-                            Notification.PostTicker($"~h~{ColoredName}~h~ <font size='11'>死了</font>", False)
+                            Notification.PostTicker($"~h~{ColoredName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>死了</font>", False)
                         Else
                             Dim killerBot = BotFactory.GetBotByPed(killer)
                             If killerBot IsNot Nothing Then
-                                Notification.PostTicker($"~h~{killerBot.ColoredName}~h~ <font size='11'>杀了</font> ~h~{Me.ColoredName}~h~", False)
+                                Notification.PostTicker($"~h~{killerBot.ColoredName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>杀了</font> ~h~{Me.ColoredName}~h~", False)
                             Else
-                                Notification.PostTicker($"~h~{killer_name}~h~ <font size='11'>杀了</font> ~h~{Me.ColoredName}~h~", False)
+                                Notification.PostTicker($"~h~{killer_name}~h~ <font size='11' color='rgba(255,255,255,0.8)'>杀了</font> ~h~{Me.ColoredName}~h~", False)
                             End If
                         End If
                     End If
@@ -609,7 +610,7 @@ Namespace InteliNPC.AI
                     If KilledByPlayer >= MaxBeKilledTimes Then
                         ExitGame()
                     Else
-                        Notification.PostTicker($"~h~{PlayerName.DisplayName}~h~ <font size='11'>杀了</font> ~h~{ColoredName}~h~", False)
+                        Notification.PostTicker($"~h~{PlayerName.DisplayName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>杀了</font> ~h~{ColoredName}~h~", False)
                         Versus.PlayerScore(Name) += 1
                         Versus.ShowScore(Ped, Name)
                         IsAlly = False
@@ -621,7 +622,7 @@ Namespace InteliNPC.AI
                         BotPlayerOptions.Weeker()
                     End If
                 Else
-                    Notification.PostTicker($"~h~{ColoredName}~h~ <font size='11'>死了</font>", False)
+                    Notification.PostTicker($"~h~{ColoredName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>死了</font>", False)
                 End If
                 If WantedAmount.HasValue Then
                     If Ped.Killer?.Exists() Then
@@ -1114,7 +1115,7 @@ Namespace InteliNPC.AI
                     Loop While usedNames.Contains(randomName)
 
                     usedNames.Add(randomName)
-                    Notification.PostTicker($"~h~{randomName}~h~ <font size='11'>已离开</font>", False)
+                    Notification.PostTicker($"~h~{randomName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>已离开</font>", False)
                 Next
                 ScheduleNextNotification()
             End If

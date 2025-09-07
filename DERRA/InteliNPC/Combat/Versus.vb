@@ -63,7 +63,7 @@ Namespace InteliNPC.Combat
             For Each bot As Bot In BotFactory.Pool
                 If killer = bot.Ped Then
                     EnermyScore(bot.Name) += 1
-                    Notification.PostTicker($"~h~{bot.Name}~h~ 使用 {Weapon.GetHumanNameFromHash(PlayerPed.CauseOfDeath)} 杀死了您", False)
+                    Notification.PostTicker($"~h~{bot.Name}~h~ <font color='rgba(255,255,255,0.8)'>使用 {Weapon.GetHumanNameFromHash(PlayerPed.CauseOfDeath)} 杀死了您</font>", False)
                     ShowScore(killer, bot.Name)
                     Exit For
                 End If
