@@ -46,11 +46,11 @@
   <ItemGroup>
     <Reference Include="LemonUI.SHVDN3, Version=2.1.2.0, Culture=neutral, processorArchitecture=AMD64">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\LemonUI (2)\SHVDN3\LemonUI.SHVDN3.dll</HintPath>
+      <HintPath>..\..\..\..\GTA_DERRA\LemonUI (2)\SHVDN3\LemonUI.SHVDN3.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="ScriptHookVDotNet3">
-      <HintPath>..\..\ScriptHookVDotNet-v3.6.0-nightly.135\ScriptHookVDotNet3.dll</HintPath>
+      <HintPath>..\..\..\..\GTA_DERRA\ScriptHookVDotNet-v3.6.0-nightly.135\ScriptHookVDotNet3.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />

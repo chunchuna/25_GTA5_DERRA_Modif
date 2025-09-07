@@ -179,6 +179,7 @@ Namespace InteliNPC.AI
     End Class
     Public Class Bot
         Implements IEntityController, ITickProcessable
+        Private Shared ReadOnly Rng As New Random()
         Private ReadOnly m_ped As Ped
         Private m_money As Integer
         Private ReadOnly known_decisions As Dictionary(Of String, BotDecision)
@@ -195,6 +196,18 @@ Namespace InteliNPC.AI
         Private hasExitGame As Boolean
         Private m_accuracy As Integer
         Private ReadOnly nameLabel As PedLabel
+        Private m_nameColor As System.Drawing.Color
+        Private m_nameColorPrefix As String
+
+        Public Function GetNameColor() As System.Drawing.Color
+            Return m_nameColor
+        End Function
+
+        Public ReadOnly Property ColoredName As String
+            Get
+                Return $"{m_nameColorPrefix}{Name}~s~"
+            End Get
+        End Property
         ''' <summary>
         ''' 获取或设置自定义<see cref="BlipDisplayType"/>，具有最高优先级。
         ''' </summary>
@@ -276,6 +289,17 @@ Namespace InteliNPC.AI
             UpdateBlipDisplayStyle()
             [Function].Call(Hash.SHOW_HEIGHT_ON_BLIP, ped.AttachedBlip, False)
 
+            Dim nameColorOptions As New List(Of (Color As System.Drawing.Color, Prefix As String)) From {
+                (System.Drawing.Color.Red, "~r~"),
+                (System.Drawing.Color.Orange, "~o~"),
+                (System.Drawing.Color.Blue, "~b~"),
+                (System.Drawing.Color.CornflowerBlue, "~b~"),
+                (System.Drawing.Color.HotPink, "~q~"),
+                (System.Drawing.Color.WhiteSmoke, "~s~")
+            }
+            Dim pickedColor = nameColorOptions(Rng.Next(nameColorOptions.Count))
+            m_nameColor = pickedColor.Color
+            m_nameColorPrefix = pickedColor.Prefix
             '[Function].Call(Hash.SET_ALL_MP_GAMER_TAGS_VISIBILITY, gamer_tag_id, True)
             'If Pick({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}) = 1 Then
             '    '1/6的概率被悬赏
@@ -544,12 +568,17 @@ Namespace InteliNPC.AI
                 If killer?.AttachedBlip?.Exists() Then
                     Dim killer_name As String = BotFactory.GetBotNameByPed(killer)
                     If killer_name = Name Then
-                        Notification.PostTicker($"~h~{Name}~h~ 自杀了", False)
+                        Notification.PostTicker($"~h~{ColoredName}~h~ 自杀了", False)
                     Else
                         If String.IsNullOrWhiteSpace(killer_name) Then
-                            Notification.PostTicker($"~h~{Name}~h~ 死了", False)
+                            Notification.PostTicker($"~h~{ColoredName}~h~ 死了", False)
                         Else
-                            Notification.PostTicker($"~h~{killer_name }~h~ 杀了 ~h~{Name}~h~", False)
+                            Dim killerBot = BotFactory.GetBotByPed(killer)
+                            If killerBot IsNot Nothing Then
+                                Notification.PostTicker($"~h~{killerBot.ColoredName}~h~ 杀了 ~h~{Me.ColoredName}~h~", False)
+                            Else
+                                Notification.PostTicker($"~h~{killer_name}~h~ 杀了 ~h~{Me.ColoredName}~h~", False)
+                            End If
                         End If
                     End If
                 ElseIf killer = PlayerPed Then
@@ -558,7 +587,7 @@ Namespace InteliNPC.AI
                     If KilledByPlayer >= MaxBeKilledTimes Then
                         ExitGame()
                     Else
-                        Notification.PostTicker($"~h~{PlayerName.DisplayName}~h~ 杀了 ~h~{Name}~h~", False)
+                        Notification.PostTicker($"~h~{PlayerName.DisplayName}~h~ 杀了 ~h~{ColoredName}~h~", False)
                         Versus.PlayerScore(Name) += 1
                         Versus.ShowScore(Ped, Name)
                         IsAlly = False
@@ -570,16 +599,21 @@ Namespace InteliNPC.AI
                         BotPlayerOptions.Weeker()
                     End If
                 Else
-                    Notification.PostTicker($"~h~{Name}~h~ 死了", False)
+                    Notification.PostTicker($"~h~{ColoredName}~h~ 死了", False)
                 End If
                 If WantedAmount.HasValue Then
                     If Ped.Killer?.Exists() Then
                         If Ped.Killer = PlayerPed Then
                             Game.Player.Money += WantedAmount.Value
                         ElseIf Ped.Killer.AttachedBlip?.Exists() Then
-                            Dim killer_name As String = Ped.Killer?.AttachedBlip?.Name
-                            If Not String.IsNullOrWhiteSpace(killer_name) Then
-                                Notification.PostTicker($"对 ~h~{Name}~h~ 发起的悬赏追杀的悬赏金 ${WantedAmount} 已由 {killer_name } 夺得", False)
+                            Dim killer_bot As Bot = BotFactory.GetBotByPed(Ped.Killer)
+                            If killer_bot IsNot Nothing Then
+                                Notification.PostTicker($"对 ~h~{ColoredName}~h~ 发起的悬赏追杀的悬赏金 ${WantedAmount} 已由 {killer_bot.ColoredName} 夺得", False)
+                            Else
+                                Dim killer_name As String = Ped.Killer?.AttachedBlip?.Name
+                                If Not String.IsNullOrWhiteSpace(killer_name) Then
+                                    Notification.PostTicker($"对 ~h~{ColoredName}~h~ 发起的悬赏追杀的悬赏金 ${WantedAmount} 已由 {killer_name } 夺得", False)
+                                End If
                             End If
 
                         End If
@@ -640,6 +674,7 @@ Namespace InteliNPC.AI
 
         Public Sub Process() Implements ITickProcessable.Process
             UpdateBlipDisplayStyle()
+            nameLabel.LabelColor = GetNameColor()
             If Ped.IsOnScreen AndAlso Ped.Position.DistanceTo(PlayerPed.Position) < 80 Then
                 nameLabel.Visible = True
             Else
