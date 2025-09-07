@@ -27,6 +27,7 @@ Public Class MainMenuClient
     Private ReadOnly pool As ObjectPool
     Private ReadOnly menu As NativeMenu
     Public Sub New()
+        FrameTicker.Add(New FakePlayerLeaveNotifierProcessor())
         pool = New ObjectPool()
         menu = New NativeMenu("DERRA") With {.Description = "DERRA"}
         pool.Add(menu)

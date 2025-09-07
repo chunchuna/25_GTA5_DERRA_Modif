@@ -180,6 +180,37 @@ Namespace InteliNPC.AI
     Public Class Bot
         Implements IEntityController, ITickProcessable
         Private Shared ReadOnly Rng As New Random()
+        Private Shared ReadOnly BlipColorMap As New Dictionary(Of BlipColor, (Drawing As System.Drawing.Color, Prefix As String))
+        Shared Sub New()
+            BlipColorMap = New Dictionary(Of BlipColor, (Drawing As Drawing.Color, Prefix As String)) From {
+                {BlipColor.WhiteNotPure, (Drawing.Color.WhiteSmoke, "~s~")},
+                {BlipColor.NetPlayer1, (Drawing.Color.FromArgb(114, 204, 224), "~b~")},
+                {BlipColor.NetPlayer2, (Drawing.Color.FromArgb(148, 224, 114), "~g~")},
+                {BlipColor.NetPlayer3, (Drawing.Color.FromArgb(224, 114, 204), "~q~")},
+                {BlipColor.NetPlayer4, (Drawing.Color.FromArgb(240, 180, 88), "~o~")},
+                {BlipColor.NetPlayer5, (Drawing.Color.FromArgb(224, 148, 114), "~o~")},
+                {BlipColor.NetPlayer6, (Drawing.Color.FromArgb(114, 224, 148), "~g~")},
+                {BlipColor.NetPlayer7, (Drawing.Color.FromArgb(204, 114, 224), "~p~")},
+                {BlipColor.NetPlayer8, (Drawing.Color.FromArgb(224, 204, 114), "~y~")},
+                {BlipColor.NetPlayer9, (Drawing.Color.FromArgb(114, 148, 224), "~b~")},
+                {BlipColor.NetPlayer10, (Drawing.Color.FromArgb(148, 114, 224), "~b~")},
+                {BlipColor.NetPlayer11, (Drawing.Color.FromArgb(224, 114, 148), "~r~")},
+                {BlipColor.NetPlayer12, (Drawing.Color.FromArgb(114, 224, 204), "~g~")},
+                {BlipColor.NetPlayer13, (Drawing.Color.FromArgb(204, 224, 114), "~y~")},
+                {BlipColor.NetPlayer14, (Drawing.Color.FromArgb(224, 114, 114), "~r~")},
+                {BlipColor.NetPlayer15, (Drawing.Color.FromArgb(114, 224, 114), "~g~")},
+                {BlipColor.NetPlayer16, (Drawing.Color.FromArgb(114, 180, 224), "~b~")},
+                {BlipColor.NetPlayer17, (Drawing.Color.FromArgb(224, 114, 180), "~q~")},
+                {BlipColor.NetPlayer18, (Drawing.Color.FromArgb(180, 224, 114), "~g~")},
+                {BlipColor.NetPlayer19, (Drawing.Color.FromArgb(224, 180, 114), "~o~")},
+                {BlipColor.NetPlayer20, (Drawing.Color.FromArgb(180, 114, 224), "~p~")},
+                {BlipColor.NetPlayer21, (Drawing.Color.FromArgb(114, 224, 180), "~g~")},
+                {BlipColor.NetPlayer22, (Drawing.Color.FromArgb(224, 114, 224), "~q~")},
+                {BlipColor.NetPlayer23, (Drawing.Color.FromArgb(114, 204, 224), "~b~")},
+                {BlipColor.NetPlayer24, (Drawing.Color.FromArgb(204, 114, 224), "~p~")},
+                {BlipColor.NetPlayer25, (Drawing.Color.FromArgb(224, 204, 114), "~y~")}
+            }
+        End Sub
         Private ReadOnly m_ped As Ped
         Private m_money As Integer
         Private ReadOnly known_decisions As Dictionary(Of String, BotDecision)
@@ -250,56 +281,47 @@ Namespace InteliNPC.AI
             current_action = default_action
             With ped.AddBlip()
                 .ShowsHeadingIndicator = True
-                '.IsShortRange = True
-                Dim colors As List(Of BlipColor) = New List(Of BlipColor)()
-                colors.Add(BlipColor.NetPlayer1)
-                colors.Add(BlipColor.NetPlayer2)
-                colors.Add(BlipColor.NetPlayer3)
-                colors.Add(BlipColor.NetPlayer4)
-                colors.Add(BlipColor.NetPlayer5)
-                colors.Add(BlipColor.NetPlayer6)
-                colors.Add(BlipColor.NetPlayer7)
-                colors.Add(BlipColor.NetPlayer8)
-                colors.Add(BlipColor.NetPlayer9)
-                colors.Add(BlipColor.NetPlayer10)
-                colors.Add(BlipColor.NetPlayer11)
-                colors.Add(BlipColor.NetPlayer12)
-                colors.Add(BlipColor.NetPlayer13)
-                colors.Add(BlipColor.NetPlayer14)
-                colors.Add(BlipColor.NetPlayer15)
-                colors.Add(BlipColor.NetPlayer16)
-                colors.Add(BlipColor.NetPlayer17)
-                colors.Add(BlipColor.NetPlayer18)
-                colors.Add(BlipColor.NetPlayer19)
-                colors.Add(BlipColor.NetPlayer20)
-                colors.Add(BlipColor.NetPlayer21)
-                colors.Add(BlipColor.NetPlayer22)
-                colors.Add(BlipColor.NetPlayer23)
-                colors.Add(BlipColor.NetPlayer24)
-                colors.Add(BlipColor.NetPlayer25)
-                If Pick({True, False}) Then
-                    .Color = Pick(colors)
+                Dim blipColors As List(Of BlipColor) = New List(Of BlipColor)()
+                blipColors.Add(BlipColor.NetPlayer1)
+                blipColors.Add(BlipColor.NetPlayer2)
+                blipColors.Add(BlipColor.NetPlayer3)
+                blipColors.Add(BlipColor.NetPlayer4)
+                blipColors.Add(BlipColor.NetPlayer5)
+                blipColors.Add(BlipColor.NetPlayer6)
+                blipColors.Add(BlipColor.NetPlayer7)
+                blipColors.Add(BlipColor.NetPlayer8)
+                blipColors.Add(BlipColor.NetPlayer9)
+                blipColors.Add(BlipColor.NetPlayer10)
+                blipColors.Add(BlipColor.NetPlayer11)
+                blipColors.Add(BlipColor.NetPlayer12)
+                blipColors.Add(BlipColor.NetPlayer13)
+                blipColors.Add(BlipColor.NetPlayer14)
+                blipColors.Add(BlipColor.NetPlayer15)
+                blipColors.Add(BlipColor.NetPlayer16)
+                blipColors.Add(BlipColor.NetPlayer17)
+                blipColors.Add(BlipColor.NetPlayer18)
+                blipColors.Add(BlipColor.NetPlayer19)
+                blipColors.Add(BlipColor.NetPlayer20)
+                blipColors.Add(BlipColor.NetPlayer21)
+                blipColors.Add(BlipColor.NetPlayer22)
+                blipColors.Add(BlipColor.NetPlayer23)
+                blipColors.Add(BlipColor.NetPlayer24)
+                blipColors.Add(BlipColor.NetPlayer25)
+                If Rng.Next(3) = 0 Then
+                    .Color = Pick(blipColors)
                 Else
                     .Color = BlipColor.WhiteNotPure
                 End If
                 .Name = name
                 .CategoryType = BlipCategoryType.OtherPlayers
-                'Notification.PostTicker(.Sprite.ToString(), False)
+
+                Dim colorInfo = BlipColorMap(.Color)
+                m_nameColor = colorInfo.Drawing
+                m_nameColorPrefix = colorInfo.Prefix
             End With
             UpdateBlipDisplayStyle()
             [Function].Call(Hash.SHOW_HEIGHT_ON_BLIP, ped.AttachedBlip, False)
 
-            Dim nameColorOptions As New List(Of (Color As System.Drawing.Color, Prefix As String)) From {
-                (System.Drawing.Color.Red, "~r~"),
-                (System.Drawing.Color.Orange, "~o~"),
-                (System.Drawing.Color.Blue, "~b~"),
-                (System.Drawing.Color.CornflowerBlue, "~b~"),
-                (System.Drawing.Color.HotPink, "~q~"),
-                (System.Drawing.Color.WhiteSmoke, "~s~")
-            }
-            Dim pickedColor = nameColorOptions(Rng.Next(nameColorOptions.Count))
-            m_nameColor = pickedColor.Color
-            m_nameColorPrefix = pickedColor.Prefix
             '[Function].Call(Hash.SET_ALL_MP_GAMER_TAGS_VISIBILITY, gamer_tag_id, True)
             'If Pick({1, 2, 3, 4, 5, 6, 7, 8, 9, 10}) = 1 Then
             '    '1/6的概率被悬赏
@@ -1063,5 +1085,60 @@ Namespace InteliNPC.AI
             End If
             Return CreateAdvancedBot(ped, name)
         End Function
+    End Class
+
+    ''' <summary>
+    ''' 定期显示假的AI玩家离开游戏的通知。
+    ''' </summary>
+    Public Class FakePlayerLeaveNotifier
+        Private Shared ReadOnly Rng As New Random()
+        Private Shared nextNotificationTime As Integer
+
+        Shared Sub New()
+            ' 静态构造函数，用于初始化第一个通知时间
+            ScheduleNextNotification()
+        End Sub
+
+        Public Shared Sub Process()
+            If Game.GameTime > nextNotificationTime Then
+                ' It's time to show the notification
+                ' Randomly determine the number of notifications (1-3)
+                Dim notificationCount As Integer = Rng.Next(1, 4)
+                Dim usedNames As New HashSet(Of String)()
+ 
+                For i As Integer = 1 To notificationCount
+                    Dim randomName As String
+                    ' Make sure the name is not repeated
+                    Do
+                        randomName = BotNames.PickOne()
+                    Loop While usedNames.Contains(randomName)
+ 
+                    usedNames.Add(randomName)
+                    Notification.PostTicker($"{randomName} 已离开", False)
+                Next
+                ScheduleNextNotification()
+            End If
+        End Sub
+
+        Private Shared Sub ScheduleNextNotification()
+            ' Random interval between 6 and 35 seconds (in milliseconds)
+            Dim interval As Integer = Rng.Next(6000, 35001)
+            nextNotificationTime = Game.GameTime + interval
+        End Sub
+    End Class
+
+    ''' <summary>
+    ''' 用于处理 FakePlayerLeaveNotifier 的计时器。
+    ''' </summary>
+    Public Class FakePlayerLeaveNotifierProcessor
+        Implements ITickProcessable
+
+        Public Function CanBeRemoved() As Boolean Implements ITickProcessable.CanBeRemoved
+            Return False ' 永不移除此处理器
+        End Function
+
+        Public Sub Process() Implements ITickProcessable.Process
+            FakePlayerLeaveNotifier.Process()
+        End Sub
     End Class
 End Namespace
