@@ -1,0 +1,174 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{72325351-AF64-4C9B-B915-DE2CD98508EF}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>DERRA</RootNamespace>
+    <AssemblyName>DERRA</AssemblyName>
+    <FileAlignment>512</FileAlignment>
+    <MyType>Windows</MyType>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <DefineDebug>true</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <OutputPath>F:\SteamLibrary\steamapps\common\Grand Theft Auto V\scripts\</OutputPath>
+    <DocumentationFile>DERRA.xml</DocumentationFile>
+    <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>true</DefineTrace>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DocumentationFile>DERRA.xml</DocumentationFile>
+    <NoWarn>42016,41999,42017,42018,42019,42032,42036,42020,42021,42022</NoWarn>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionExplicit>On</OptionExplicit>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionCompare>Binary</OptionCompare>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionStrict>Off</OptionStrict>
+  </PropertyGroup>
+  <PropertyGroup>
+    <OptionInfer>On</OptionInfer>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="LemonUI.SHVDN3, Version=2.1.2.0, Culture=neutral, processorArchitecture=AMD64">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\LemonUI (2)\SHVDN3\LemonUI.SHVDN3.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="ScriptHookVDotNet3">
+      <HintPath>..\..\ScriptHookVDotNet-v3.6.0-nightly.135\ScriptHookVDotNet3.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+  <ItemGroup>
+    <Import Include="Microsoft.VisualBasic" />
+    <Import Include="System" />
+    <Import Include="System.Collections" />
+    <Import Include="System.Collections.Generic" />
+    <Import Include="System.Data" />
+    <Import Include="System.Diagnostics" />
+    <Import Include="System.Linq" />
+    <Import Include="System.Xml.Linq" />
+    <Import Include="System.Threading.Tasks" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AntiNpcDriverPatch.vb" />
+    <Compile Include="EntityCollection.vb" />
+    <Compile Include="EntityLabelDisplay.vb" />
+    <Compile Include="InteliNPC\AI\AI.vb" />
+    <Compile Include="InteliNPC\AI\Decisions\CommonDecisions.vb" />
+    <Compile Include="InteliNPC\AI\Decisions\PlayerCommandedDecisions.vb" />
+    <Compile Include="InteliNPC\BotNames.vb" />
+    <Compile Include="InteliNPC\Combat\PlayerName.vb" />
+    <Compile Include="InteliNPC\Combat\Versus.vb" />
+    <Compile Include="InteliNPC\InteliNPC.vb" />
+    <Compile Include="InteliNPC\BotPlayerOptions.vb" />
+    <Compile Include="Interactive\FansDisplayScript.vb" />
+    <Compile Include="Interactive\Horro\ZombieController.vb" />
+    <Compile Include="Interactive\Horro\ZombieScript.vb" />
+    <Compile Include="JetHelper.vb" />
+    <Compile Include="ManagedCollection.vb" />
+    <Compile Include="Map.vb" />
+    <Compile Include="MathFunctions.vb" />
+    <Compile Include="OnlinePlayer\HealingScript.vb" />
+    <Compile Include="OnlinePlayer\OnlinePlayerOption.vb" />
+    <Compile Include="OnlinePlayer\PlayerRegenerateScript.vb" />
+    <Compile Include="RealCop.vb" />
+    <Compile Include="RevengeScript.vb" />
+    <Compile Include="SafeArea.vb" />
+    <Compile Include="help.vb" />
+    <Compile Include="Structs\Minimize.vb" />
+    <Compile Include="SuperPowers\ForceShield.vb" />
+    <Compile Include="Tasking\Guard.vb" />
+    <Compile Include="Tasking\OperativeController.vb" />
+    <Compile Include="Tasking\PedHelperBase.vb" />
+    <Compile Include="EnableOnlineVehicle.vb" />
+    <Compile Include="IEntityController.vb" />
+    <Compile Include="EntityManagement.vb" />
+    <Compile Include="IToggle.vb" />
+    <Compile Include="MainMenuClient.vb" />
+    <Compile Include="MissionHelper.vb" />
+    <Compile Include="Movie\Actors.vb" />
+    <Compile Include="Movie\Envrn.vb" />
+    <Compile Include="Movie\HeavyArmorService.vb" />
+    <Compile Include="Movie\MainCharacterController.vb" />
+    <Compile Include="Movie\PlayerCombatAgent.vb" />
+    <Compile Include="PedStyles.vb" />
+    <Compile Include="PlayerStyle.vb" />
+    <Compile Include="Sys.vb" />
+    <Compile Include="My Project\AssemblyInfo.vb" />
+    <Compile Include="My Project\Application.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Application.myapp</DependentUpon>
+    </Compile>
+    <Compile Include="My Project\Resources.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <Compile Include="My Project\Settings.Designer.vb">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+    <Compile Include="Tasking\PrivateSecurityController.vb" />
+    <Compile Include="Tasking\ThreatDetector.vb" />
+    <Compile Include="FrameTicker.vb" />
+    <Compile Include="Toggle.vb" />
+    <Compile Include="UI\MenuDialog.vb" />
+    <Compile Include="UpdateNotifier.vb" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="My Project\Resources.resx">
+      <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.vb</LastGenOutput>
+      <CustomToolNamespace>My.Resources</CustomToolNamespace>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\.editorconfig">
+      <Link>.editorconfig</Link>
+    </None>
+    <None Include="My Project\Application.myapp">
+      <Generator>MyApplicationCodeGenerator</Generator>
+      <LastGenOutput>Application.Designer.vb</LastGenOutput>
+    </None>
+    <None Include="My Project\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <CustomToolNamespace>My</CustomToolNamespace>
+      <LastGenOutput>Settings.Designer.vb</LastGenOutput>
+    </None>
+    <None Include="README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include=".gitignore" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Resources\" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
+</Project>
