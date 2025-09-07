@@ -337,7 +337,7 @@ Namespace InteliNPC.AI
         End Sub
         Public Sub ExitGame()
             hasExitGame = True
-            Notification.PostTicker($"~h~{Name}~h~ <font size='11' color='rgba(255,255,255,0.8)'>已离开</font>", False)
+            //Notification.PostTicker($"~h~{Name}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>已离开</font>", False)
         End Sub
         Public ReadOnly Property CurrentActionName As String
             Get
@@ -480,16 +480,18 @@ Namespace InteliNPC.AI
             End If
             Dim head_position As Vector3 = Ped.Bones.Item(Bone.IKHead).Position
             Dim margin As Single = 2
-            Dim health_bar_width As Single = 55
+            Dim health_bar_width As Single = 55 * 0.8 ' 修改为原来的0.8倍
             Dim health_bar_height As Single = 5
             [Function].Call(Hash.SET_DRAW_ORIGIN, head_position.X, head_position.Y, head_position.Z + 0.3, 0)
             Dim outline As ScaledRectangle = New ScaledRectangle(New PointF(-health_bar_width / 2 - margin, -margin), New SizeF(health_bar_width + margin * 2, (health_bar_height + margin * 2)))
             outline.Color = Color.Black
             Dim bar_total As ScaledRectangle = New ScaledRectangle(New Drawing.PointF(-health_bar_width / 2, 0), New Drawing.SizeF(health_bar_width, health_bar_height))
             bar_total.Color = Drawing.Color.DarkGray
+            Dim healthColor As Drawing.Color = Color.FromArgb(CInt(255 * 0.85), GetNameColor()) ' 使用与名字相同的颜色，透明度为0.85
             Dim bar_health As ScaledRectangle = New ScaledRectangle(New Drawing.PointF(-health_bar_width / 2, 0), New Drawing.SizeF(health_bar_width * Ped.Health / Ped.MaxHealth, health_bar_height))
             outline.Draw()
             bar_total.Draw()
+            bar_health.Color = healthColor ' 设置血条颜色
             bar_health.Draw()
             'GC.SuppressFinalize(bar_total)
             'GC.SuppressFinalize(bar_health)
@@ -582,7 +584,7 @@ Namespace InteliNPC.AI
             UsingVechie?.MarkAsNoLongerNeeded()
             '击杀提示
             If hasExitGame Then
-                'Notification.PostTicker($"~h~{Name}~h~ 已离开", False)
+                //'Notification.PostTicker($"~h~{Name}~h~ 已离开", False)
             Else
                 Dim killer As Entity = Ped.Killer
                 If killer?.EntityType = EntityType.Vehicle Then
@@ -591,16 +593,16 @@ Namespace InteliNPC.AI
                 If killer?.AttachedBlip?.Exists() Then
                     Dim killer_name As String = BotFactory.GetBotNameByPed(killer)
                     If killer_name = Name Then
-                        Notification.PostTicker($"~h~{ColoredName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>自杀了</font>", False)
+                        Notification.PostTicker($"~h~{ColoredName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>自杀了</font>", False)
                     Else
                         If String.IsNullOrWhiteSpace(killer_name) Then
-                            Notification.PostTicker($"~h~{ColoredName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>死了</font>", False)
+                            Notification.PostTicker($"~h~{ColoredName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>死了</font>", False)
                         Else
                             Dim killerBot = BotFactory.GetBotByPed(killer)
                             If killerBot IsNot Nothing Then
-                                Notification.PostTicker($"~h~{killerBot.ColoredName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>杀了</font> ~h~{Me.ColoredName}~h~", False)
+                                Notification.PostTicker($"~h~{killerBot.ColoredName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>杀了</font> ~h~{Me.ColoredName}~h~", False)
                             Else
-                                Notification.PostTicker($"~h~{killer_name}~h~ <font size='11' color='rgba(255,255,255,0.8)'>杀了</font> ~h~{Me.ColoredName}~h~", False)
+                                Notification.PostTicker($"~h~{killer_name}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>杀了</font> ~h~{Me.ColoredName}~h~", False)
                             End If
                         End If
                     End If
@@ -610,7 +612,7 @@ Namespace InteliNPC.AI
                     If KilledByPlayer >= MaxBeKilledTimes Then
                         ExitGame()
                     Else
-                        Notification.PostTicker($"~h~{PlayerName.DisplayName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>杀了</font> ~h~{ColoredName}~h~", False)
+                        Notification.PostTicker($"~h~{PlayerName.DisplayName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>杀了</font> ~h~{ColoredName}~h~", False)
                         Versus.PlayerScore(Name) += 1
                         Versus.ShowScore(Ped, Name)
                         IsAlly = False
@@ -622,7 +624,7 @@ Namespace InteliNPC.AI
                         BotPlayerOptions.Weeker()
                     End If
                 Else
-                    Notification.PostTicker($"~h~{ColoredName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>死了</font>", False)
+                    Notification.PostTicker($"~h~{ColoredName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>死了</font>", False)
                 End If
                 If WantedAmount.HasValue Then
                     If Ped.Killer?.Exists() Then
@@ -1115,7 +1117,7 @@ Namespace InteliNPC.AI
                     Loop While usedNames.Contains(randomName)
 
                     usedNames.Add(randomName)
-                    Notification.PostTicker($"~h~{randomName}~h~ <font size='11' color='rgba(255,255,255,0.8)'>已离开</font>", False)
+                    Notification.PostTicker($"~h~{randomName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>已离开</font>", False)
                 Next
                 ScheduleNextNotification()
             End If
