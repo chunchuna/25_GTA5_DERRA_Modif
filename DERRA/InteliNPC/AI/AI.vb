@@ -261,8 +261,8 @@ Namespace InteliNPC.AI
             m_name = name
             nameLabel = New PedLabel(ped, name) With {.Visible = False}
             PedLabelProcessor.BeginProcess(nameLabel)
-            ped.Health = 500
-            ped.MaxHealth = 500
+            ped.Health = 100
+            ped.MaxHealth = 100
             ped.SetRagdollBlockingFlags(RagdollBlockingFlags.BulletImpact)
             ped.SetRagdollBlockingFlags(RagdollBlockingFlags.PlayerImpact)
             ped.SetRagdollBlockingFlags(RagdollBlockingFlags.RubberBullet)
@@ -337,7 +337,7 @@ Namespace InteliNPC.AI
         End Sub
         Public Sub ExitGame()
             hasExitGame = True
-            //Notification.PostTicker($"~h~{Name}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>已离开</font>", False)
+            'Notification.PostTicker($" {Name}  <font size='9' color='rgba(255,255,255,0.7)'>已离开</font>", False)
         End Sub
         Public ReadOnly Property CurrentActionName As String
             Get
@@ -351,7 +351,7 @@ Namespace InteliNPC.AI
             Set(value As Integer?)
                 m_wantedAmount = value
                 If value.HasValue Then
-                    Notification.PostTicker($"~h~{Name}~h~ <font size='11'>遭到悬赏 , 悬赏金为${value}</font>", False)
+                    Notification.PostTicker($" {Name}  <font size='11'>遭到悬赏 , 悬赏金为${value}</font>", False)
                     Ped.AttachedBlip.Sprite = BlipSprite.BountyHit
                 End If
             End Set
@@ -416,7 +416,7 @@ Namespace InteliNPC.AI
                 Else
                     m_money = value
                 End If
-                Ped.Money = m_money
+                Ped.Money = 0 ' Always set to 0 to prevent money drops
             End Set
         End Property
         Private ReadOnly Property Target As Entity Implements IEntityController.Target
@@ -584,7 +584,7 @@ Namespace InteliNPC.AI
             UsingVechie?.MarkAsNoLongerNeeded()
             '击杀提示
             If hasExitGame Then
-                //'Notification.PostTicker($"~h~{Name}~h~ 已离开", False)
+                'Notification.PostTicker($" {Name}  已离开", False)
             Else
                 Dim killer As Entity = Ped.Killer
                 If killer?.EntityType = EntityType.Vehicle Then
@@ -593,16 +593,16 @@ Namespace InteliNPC.AI
                 If killer?.AttachedBlip?.Exists() Then
                     Dim killer_name As String = BotFactory.GetBotNameByPed(killer)
                     If killer_name = Name Then
-                        Notification.PostTicker($"~h~{ColoredName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>自杀了</font>", False)
+                        Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>自杀了</font>", False)
                     Else
                         If String.IsNullOrWhiteSpace(killer_name) Then
-                            Notification.PostTicker($"~h~{ColoredName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>死了</font>", False)
+                            Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了</font>", False)
                         Else
                             Dim killerBot = BotFactory.GetBotByPed(killer)
                             If killerBot IsNot Nothing Then
-                                Notification.PostTicker($"~h~{killerBot.ColoredName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>杀了</font> ~h~{Me.ColoredName}~h~", False)
+                                Notification.PostTicker($" {killerBot.ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>杀了</font>  {Me.ColoredName} ", False)
                             Else
-                                Notification.PostTicker($"~h~{killer_name}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>杀了</font> ~h~{Me.ColoredName}~h~", False)
+                                Notification.PostTicker($" {killer_name}  <font size='9' color='rgba(255,255,255,0.7)'>杀了</font>  {Me.ColoredName} ", False)
                             End If
                         End If
                     End If
@@ -612,7 +612,7 @@ Namespace InteliNPC.AI
                     If KilledByPlayer >= MaxBeKilledTimes Then
                         ExitGame()
                     Else
-                        Notification.PostTicker($"~h~{PlayerName.DisplayName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>杀了</font> ~h~{ColoredName}~h~", False)
+                        Notification.PostTicker($" {PlayerName.DisplayName}  <font size='9' color='rgba(255,255,255,0.7)'>杀了</font>  {ColoredName} ", False)
                         Versus.PlayerScore(Name) += 1
                         Versus.ShowScore(Ped, Name)
                         IsAlly = False
@@ -624,7 +624,7 @@ Namespace InteliNPC.AI
                         BotPlayerOptions.Weeker()
                     End If
                 Else
-                    Notification.PostTicker($"~h~{ColoredName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>死了</font>", False)
+                    Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了</font>", False)
                 End If
                 If WantedAmount.HasValue Then
                     If Ped.Killer?.Exists() Then
@@ -633,11 +633,11 @@ Namespace InteliNPC.AI
                         ElseIf Ped.Killer.AttachedBlip?.Exists() Then
                             Dim killer_bot As Bot = BotFactory.GetBotByPed(Ped.Killer)
                             If killer_bot IsNot Nothing Then
-                                Notification.PostTicker($"<font size='11'>对</font> ~h~{ColoredName}~h~ <font size='11'>发起的悬赏追杀的悬赏金 ${WantedAmount} 已由</font> {killer_bot.ColoredName} <font size='11'>夺得</font>", False)
+                                Notification.PostTicker($"<font size='11'>对</font>  {ColoredName}  <font size='11'>发起的悬赏追杀的悬赏金 ${WantedAmount} 已由</font> {killer_bot.ColoredName} <font size='11'>夺得</font>", False)
                             Else
                                 Dim killer_name As String = Ped.Killer?.AttachedBlip?.Name
                                 If Not String.IsNullOrWhiteSpace(killer_name) Then
-                                    Notification.PostTicker($"<font size='11'>对</font> ~h~{ColoredName}~h~ <font size='11'>发起的悬赏追杀的悬赏金 ${WantedAmount} 已由</font> ~h~{killer_name}~h~ <font size='11'>夺得</font>", False)
+                                    Notification.PostTicker($"<font size='11'>对</font>  {ColoredName}  <font size='11'>发起的悬赏追杀的悬赏金 ${WantedAmount} 已由</font>  {killer_name}  <font size='11'>夺得</font>", False)
                                 End If
                             End If
 
@@ -663,11 +663,11 @@ Namespace InteliNPC.AI
                             Dim decision As AttackDecision = New AttackDecision(killer)
                             If killer = PlayerPed Then
                                 bot.ForceStartNewDecision(decision)
-                                'Notification.PostTicker($"~h~{Name}~h~ 将对玩家开展报复行动", False) '后期可删除
+                                'Notification.PostTicker($" {Name}  将对玩家开展报复行动", False) '后期可删除
                             ElseIf (killer.IsOnScreen OrElse bot.Ped.IsOnScreen) AndAlso bot.Ped.Position.DistanceTo(GameplayCamera.Position) < 100 Then
                                 bot.ForceStartNewDecision(decision)
                                 'Dim killer_name As String = BotFactory.GetBotNameByPed(killer)
-                                'Notification.PostTicker($"~h~{Name}~h~ 将对 ~h~{killer_name}~h~ 开展报复行动", False)
+                                'Notification.PostTicker($" {Name}  将对  {killer_name}  开展报复行动", False)
                             End If
                         End If
 
@@ -678,7 +678,7 @@ Namespace InteliNPC.AI
                         'bot.Logic.Learn(Pick(BotFactory.Pool.ToArray).Logic)
                     End If
 
-                    'Notification.PostTicker($"~h~{Name}~h~ 已重生", True)
+                    'Notification.PostTicker($" {Name}  已重生", True)
                 End If
             End If
             '群体智能
@@ -689,7 +689,7 @@ Namespace InteliNPC.AI
                         bot.Logic.Avoid(Logic)
                     End If
                 Next
-                'Notification.PostTicker($"~h~{Name}~h~ 已向其他Bot广播死亡经验", True)
+                'Notification.PostTicker($" {Name}  已向其他Bot广播死亡经验", True)
             End If
         End Sub
 
@@ -921,7 +921,8 @@ Namespace InteliNPC.AI
             bot.Ped.CombatAbility = CombatAbility.Professional
             bot.Ped.SetCombatAttribute(CombatAttributes.PerfectAccuracy, True)
             bot.OwnedWeapons.Give(WeaponHash.Pistol, 2000)
-            bot.Money = 0
+            bot.Money = 0 ' Set to 0 to prevent money drops
+            bot.Ped.Money = 0 ' Explicitly set Ped.Money to 0
             EntityManagement.AddController(bot)
             FrameTicker.Add(bot)
             bot.IsAlly = True
@@ -994,7 +995,7 @@ Namespace InteliNPC.AI
             Dim bot As Bot = New Bot(ped, If(name, GetNewBotName()), GetCommonDecisions(), EmptyDecision.Default.GetAction(Nothing))
             'bot.Ped.CombatAbility = CombatAbility.Professional
             'bot.Ped.SetCombatAttribute(CombatAttributes.PerfectAccuracy, True)
-            bot.Money = 100000
+            bot.Money = 0 ' Set to 0 to prevent money drops, but internal tracking will still work
             '初始化武器
             Dim vehicle_weapon As WeaponHash = Pick({WeaponHash.HeavyPistol, WeaponHash.PistolMk2, WeaponHash.APPistol, WeaponHash.MiniSMG, WeaponHash.TacticalSMG})
             bot.OwnedWeapons.Give(vehicle_weapon, 99999) '基本上这些武器不在载具上是不会选的
@@ -1117,7 +1118,7 @@ Namespace InteliNPC.AI
                     Loop While usedNames.Contains(randomName)
 
                     usedNames.Add(randomName)
-                    Notification.PostTicker($"~h~{randomName}~h~ <font size='9.5' color='rgba(255,255,255,0.7)'>已离开</font>", False)
+                    Notification.PostTicker($" {randomName}  <font size='9' color='rgba(255,255,255,0.7)'>已离开</font>", False)
                 Next
                 ScheduleNextNotification()
             End If
