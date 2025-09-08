@@ -1149,10 +1149,9 @@ Namespace InteliNPC.AI
         Private Shared isZKeyDown As Boolean = False
         Private Shared isXKeyDown As Boolean = False
         Private Shared zWasPressed As Boolean = False ' Flag to track a new Z key press
-        Private Shared manualStrafingPed As Ped = Nothing
-        Private Shared manualStrafeCenterPos As Vector3
-        Private Shared strafeAngle As Single = 0.0F
-        
+        Private Shared xWasPressed As Boolean = False ' Flag to track a new X key press
+        Private Shared jumpingPed As Ped = Nothing ' Ped currently performing a jump
+
         Private Shared strafeStateStartTime As Integer = 0
         Private Const STRAFE_TIMEOUT As Integer = 5000 ' 5 seconds timeout for a strafe action
 
@@ -1168,6 +1167,7 @@ Namespace InteliNPC.AI
                 zWasPressed = True
             ElseIf e.KeyCode = Keys.X Then
                 isXKeyDown = True
+                xWasPressed = True
             End If
         End Sub
 
@@ -1184,7 +1184,7 @@ Namespace InteliNPC.AI
 
             HandleStrafe() ' Z-Key Task Based
             HandleZPress() ' Z-Key Task Based
-            HandleXPressStrafe() ' X-Key Manual Coordinate Based
+            HandleXPressJump() ' X-Key Jump Task
             ProcessStatusText()
         End Sub
 
@@ -1259,64 +1259,21 @@ Namespace InteliNPC.AI
             End If
         End Sub
 
-        Private Shared Sub HandleXPressStrafe()
-            ' Handle release of X key
-            If Not isXKeyDown Then
-                If manualStrafingPed IsNot Nothing Then
-                    ' Give control back to the AI
-                    manualStrafingPed.BlockPermanentEvents = False
-                    manualStrafingPed = Nothing
+        Private Shared Sub HandleXPressJump()
+            If xWasPressed Then
+                xWasPressed = False ' Consume the press event
+
+                Dim targetedEntity As Entity = Game.Player.TargetedEntity
+                If targetedEntity IsNot Nothing AndAlso TypeOf targetedEntity Is Ped AndAlso targetedEntity.IsAlive Then
+                    jumpingPed = CType(targetedEntity, Ped)
+                     jumpingPed.Task.ClearAll()
+                    jumpingPed.Task.Jump()
                 End If
-                Return
             End If
 
-            ' When X is held down
-            Dim targetedEntity As Entity = Game.Player.TargetedEntity
-            If targetedEntity Is Nothing OrElse Not (TypeOf targetedEntity Is Ped) Then
-                ' If we lose target, reset
-                If manualStrafingPed IsNot Nothing Then
-                    manualStrafingPed.BlockPermanentEvents = False
-                    manualStrafingPed = Nothing
-                End If
-                Return
-            End If
-
-            Dim targetedPed As Ped = CType(targetedEntity, Ped)
-
-            ' Check if we need to start a new manual strafe
-            If manualStrafingPed Is Nothing OrElse manualStrafingPed IsNot targetedPed Then
-                manualStrafingPed = targetedPed
-                manualStrafeCenterPos = targetedPed.Position
-                strafeAngle = 0.0F
-                manualStrafingPed.BlockPermanentEvents = True ' Take control
-            End If
-
-            ' --- Continuous update while X is held ---
-            If manualStrafingPed IsNot Nothing AndAlso manualStrafingPed.Exists() AndAlso manualStrafingPed.IsAlive Then
-                ' 1. Update Heading to always face player
-                manualStrafingPed.Task.LookAt(Game.Player.Character)
-
-                ' 2. Calculate smooth side-to-side movement using a sine wave
-                strafeAngle += 5.0F ' Speed of the strafe
-                If strafeAngle > 360.0F Then strafeAngle -= 360.0F
-
-                ' Amplitude of 2.0 means it will move 2 meters to the left and 2 meters to the right
-                Dim offsetDistance As Single = 2.0F * CSng(System.Math.Sin(strafeAngle * System.Math.PI / 180.0F))
-                
-                ' Get the ped's "right" vector
-                Dim rightVector As Vector3 = manualStrafingPed.RightVector
-
-                ' Calculate new position relative to the center point
-                Dim newPos As Vector3 = manualStrafeCenterPos + rightVector * offsetDistance
-                
-                ' 3. Directly set the ped's position
-                manualStrafingPed.Position = newPos
-            Else
-                ' Cleanup if ped becomes invalid
-                If manualStrafingPed IsNot Nothing AndAlso manualStrafingPed.Exists() Then
-                    manualStrafingPed.BlockPermanentEvents = False
-                End If
-                manualStrafingPed = Nothing
+            ' Reset jumpingPed state after a short delay to clear the status text
+            If jumpingPed IsNot Nothing AndAlso Not jumpingPed.IsJumping Then
+                jumpingPed = Nothing
             End If
         End Sub
 
@@ -1334,19 +1291,19 @@ Namespace InteliNPC.AI
 
             ' Determine status text based on the currently targeted ped
             Dim statusText As String
-            If isXKeyDown AndAlso manualStrafingPed Is targetedPed Then
-                statusText = "Manual Strafe Active"
-            ElseIf isZKeyDown AndAlso strafingPed Is targetedPed AndAlso strafeState <> 0 AndAlso strafingPed.IsAlive Then
+            If jumpingPed Is targetedPed AndAlso jumpingPed.IsJumping Then
+                statusText = "Jumping"
+            ElseIf strafingPed Is targetedPed AndAlso strafeState <> 0 AndAlso strafingPed.IsAlive Then
                 Select Case strafeState
                     Case 1
-                        statusText = "Task Strafe Left"
+                        statusText = ""
                     Case 2
-                        statusText = "Task Strafe Right"
+                        statusText = ""
                     Case Else
-                        statusText = "Idle"
+                        statusText = ""
                 End Select
             Else
-                statusText = "Idle"
+                statusText = ""
             End If
 
             ' Drawing logic
