@@ -1,5 +1,6 @@
 ﻿Imports System.Drawing
 Imports System.IO
+Imports System.Windows.Forms
 Imports DERRA.EntityLabelDisplay
 Imports DERRA.InteliNPC.AI.Decisions
 Imports DERRA.InteliNPC.Combat
@@ -1134,6 +1135,228 @@ Namespace InteliNPC.AI
 
         Public Sub Process() Implements ITickProcessable.Process
             FakePlayerLeaveNotifier.Process()
+        End Sub
+    End Class
+
+    ' --- New Class for Player Direct Control Logic ---
+    Public Class PlayerDirectControl
+        Inherits Script
+
+        Private Shared strafingPed As Ped = Nothing
+        Private Shared strafeState As Integer = 0 ' 0: idle, 1: moving left, 2: moving right
+        Private Shared strafeTargetPos As Vector3
+        
+        Private Shared isZKeyDown As Boolean = False
+        Private Shared isXKeyDown As Boolean = False
+        Private Shared zWasPressed As Boolean = False ' Flag to track a new Z key press
+        Private Shared manualStrafingPed As Ped = Nothing
+        Private Shared manualStrafeCenterPos As Vector3
+        Private Shared strafeAngle As Single = 0.0F
+        
+        Private Shared strafeStateStartTime As Integer = 0
+        Private Const STRAFE_TIMEOUT As Integer = 5000 ' 5 seconds timeout for a strafe action
+
+        Public Sub New()
+            AddHandler Me.Tick, AddressOf OnTick
+            AddHandler Me.KeyDown, AddressOf OnKeyDown
+            AddHandler Me.KeyUp, AddressOf OnKeyUp
+        End Sub
+
+        Private Sub OnKeyDown(sender As Object, e As KeyEventArgs)
+            If e.KeyCode = Keys.Z Then
+                isZKeyDown = True
+                zWasPressed = True
+            ElseIf e.KeyCode = Keys.X Then
+                isXKeyDown = True
+            End If
+        End Sub
+
+        Private Sub OnKeyUp(sender As Object, e As KeyEventArgs)
+            If e.KeyCode = Keys.Z Then
+                isZKeyDown = False
+            ElseIf e.KeyCode = Keys.X Then
+                isXKeyDown = False
+            End If
+        End Sub
+
+        Public Sub OnTick(sender As Object, e As EventArgs)
+            If Game.Player.Character.IsDead Then Return
+
+            HandleStrafe() ' Z-Key Task Based
+            HandleZPress() ' Z-Key Task Based
+            HandleXPressStrafe() ' X-Key Manual Coordinate Based
+            ProcessStatusText()
+        End Sub
+
+        Private Shared Sub CallNativeStrafeTask(ped As Ped, targetPos As Vector3)
+            ' Temporarily take control from the ped's native AI
+            ped.BlockPermanentEvents = True
+            ped.Task.ClearAll()
+
+            Dim playerPos As Vector3 = Game.Player.Character.Position
+            ' TASK_GO_TO_COORD_WHILE_AIMING_AT_COORD(ped, moveX, moveY, moveZ, aimX, aimY, aimZ, moveSpeed, shoot, p9, p10, p11, firingpattern)
+            [Function].Call(Hash.TASK_GO_TO_COORD_WHILE_AIMING_AT_COORD, ped, targetPos.X, targetPos.Y, targetPos.Z, playerPos.X, playerPos.Y, playerPos.Z, 3.0F, True, 0, 0, False, CType(FiringPattern.FullAuto, UInteger))
+        End Sub
+
+        Private Shared Sub HandleStrafe()
+            If strafeState = 0 Then
+                Return
+            End If
+
+            ' Timeout check to prevent getting stuck
+            If Game.GameTime - strafeStateStartTime > STRAFE_TIMEOUT Then
+                If strafingPed IsNot Nothing AndAlso strafingPed.Exists() Then
+                    strafingPed.BlockPermanentEvents = False ' Give control back
+                    strafingPed.Task.ClearAll() ' Stop whatever it was trying to do
+                End If
+                strafeState = 0
+                strafingPed = Nothing
+                Return
+            End If
+
+            If strafingPed Is Nothing OrElse Not strafingPed.Exists() OrElse strafingPed.IsDead Then
+                If strafingPed IsNot Nothing AndAlso strafingPed.Exists() Then
+                    strafingPed.BlockPermanentEvents = False ' Give control back on death/cleanup
+                End If
+                strafeState = 0 ' Reset
+                strafingPed = Nothing
+                Return
+            End If
+
+            ' Check if movement is complete
+            If strafingPed.Position.DistanceTo(strafeTargetPos) < 1.5F Then
+                If strafeState = 1 Then
+                    ' Finished moving left, now move right
+                    strafeState = 2
+                    strafeStateStartTime = Game.GameTime ' Reset timer for the next move
+                    Dim rightVec As Vector3 = strafingPed.RightVector * 4.0F ' Move 4m right (2m from original center)
+                    strafeTargetPos = strafingPed.Position + rightVec
+                    CallNativeStrafeTask(strafingPed, strafeTargetPos)
+                Else
+                    ' Finished moving right, end of strafe
+                    strafingPed.BlockPermanentEvents = False ' Give control back to AI
+                    strafeState = 0
+                    strafingPed = Nothing ' Reset the action ped
+                End If
+            End If
+        End Sub
+
+        Private Shared Sub HandleZPress()
+            If zWasPressed AndAlso strafeState = 0 Then
+                zWasPressed = False ' Consume the press event
+
+                Dim targetedEntity As Entity = Game.Player.TargetedEntity
+                If targetedEntity IsNot Nothing AndAlso TypeOf targetedEntity Is Ped AndAlso targetedEntity.IsAlive Then
+                    strafingPed = CType(targetedEntity, Ped)
+
+                    ' State 1: move left
+                    strafeState = 1
+                    strafeStateStartTime = Game.GameTime ' Start timer
+                    Dim leftVec As Vector3 = -strafingPed.RightVector * 2.0F
+                    strafeTargetPos = strafingPed.Position + leftVec
+                    CallNativeStrafeTask(strafingPed, strafeTargetPos)
+                End If
+            End If
+        End Sub
+
+        Private Shared Sub HandleXPressStrafe()
+            ' Handle release of X key
+            If Not isXKeyDown Then
+                If manualStrafingPed IsNot Nothing Then
+                    ' Give control back to the AI
+                    manualStrafingPed.BlockPermanentEvents = False
+                    manualStrafingPed = Nothing
+                End If
+                Return
+            End If
+
+            ' When X is held down
+            Dim targetedEntity As Entity = Game.Player.TargetedEntity
+            If targetedEntity Is Nothing OrElse Not (TypeOf targetedEntity Is Ped) Then
+                ' If we lose target, reset
+                If manualStrafingPed IsNot Nothing Then
+                    manualStrafingPed.BlockPermanentEvents = False
+                    manualStrafingPed = Nothing
+                End If
+                Return
+            End If
+
+            Dim targetedPed As Ped = CType(targetedEntity, Ped)
+
+            ' Check if we need to start a new manual strafe
+            If manualStrafingPed Is Nothing OrElse manualStrafingPed IsNot targetedPed Then
+                manualStrafingPed = targetedPed
+                manualStrafeCenterPos = targetedPed.Position
+                strafeAngle = 0.0F
+                manualStrafingPed.BlockPermanentEvents = True ' Take control
+            End If
+
+            ' --- Continuous update while X is held ---
+            If manualStrafingPed IsNot Nothing AndAlso manualStrafingPed.Exists() AndAlso manualStrafingPed.IsAlive Then
+                ' 1. Update Heading to always face player
+                manualStrafingPed.Task.LookAt(Game.Player.Character)
+
+                ' 2. Calculate smooth side-to-side movement using a sine wave
+                strafeAngle += 5.0F ' Speed of the strafe
+                If strafeAngle > 360.0F Then strafeAngle -= 360.0F
+
+                ' Amplitude of 2.0 means it will move 2 meters to the left and 2 meters to the right
+                Dim offsetDistance As Single = 2.0F * CSng(System.Math.Sin(strafeAngle * System.Math.PI / 180.0F))
+                
+                ' Get the ped's "right" vector
+                Dim rightVector As Vector3 = manualStrafingPed.RightVector
+
+                ' Calculate new position relative to the center point
+                Dim newPos As Vector3 = manualStrafeCenterPos + rightVector * offsetDistance
+                
+                ' 3. Directly set the ped's position
+                manualStrafingPed.Position = newPos
+            Else
+                ' Cleanup if ped becomes invalid
+                If manualStrafingPed IsNot Nothing AndAlso manualStrafingPed.Exists() Then
+                    manualStrafingPed.BlockPermanentEvents = False
+                End If
+                manualStrafingPed = Nothing
+            End If
+        End Sub
+
+        Private Shared Sub ProcessStatusText()
+            If Not isZKeyDown AndAlso Not isXKeyDown Then
+                Return
+            End If
+
+            Dim targetedEntity As Entity = Game.Player.TargetedEntity
+            If targetedEntity Is Nothing OrElse Not (TypeOf targetedEntity Is Ped) Then
+                Return
+            End If
+
+            Dim targetedPed As Ped = CType(targetedEntity, Ped)
+
+            ' Determine status text based on the currently targeted ped
+            Dim statusText As String
+            If isXKeyDown AndAlso manualStrafingPed Is targetedPed Then
+                statusText = "Manual Strafe Active"
+            ElseIf isZKeyDown AndAlso strafingPed Is targetedPed AndAlso strafeState <> 0 AndAlso strafingPed.IsAlive Then
+                Select Case strafeState
+                    Case 1
+                        statusText = "Task Strafe Left"
+                    Case 2
+                        statusText = "Task Strafe Right"
+                    Case Else
+                        statusText = "Idle"
+                End Select
+            Else
+                statusText = "Idle"
+            End If
+
+            ' Drawing logic
+            Dim pedHeadPos As Vector3 = targetedPed.Bones(Bone.SkelHead).Position + New Vector3(0, 0, 0.3F)
+            Dim screenPos As PointF = GTA.UI.Screen.WorldToScreen(pedHeadPos)
+
+            If Not screenPos.IsEmpty Then
+                Dim text As New GTA.UI.TextElement(statusText, screenPos, 0.3F, Color.White, GTA.UI.Font.ChaletLondon, GTA.UI.Alignment.Center)
+                text.Draw()
+            End If
         End Sub
     End Class
 End Namespace
