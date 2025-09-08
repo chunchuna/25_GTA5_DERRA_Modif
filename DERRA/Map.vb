@@ -1,5 +1,6 @@
 ﻿Imports GTA
 Imports GTA.Math
+Imports GTA.Native
 
 Public Class Map
     Private Shared ReadOnly gun_shops As List(Of Vector3) = New List(Of Vector3)()
@@ -41,4 +42,82 @@ Public Class Map
             Return airports.ToArray()
         End Get
     End Property
+
+    ''' <summary>
+    ''' Static class to manage the map display mode
+    ''' </summary>
+    Public Class OnlineMapMode
+        ''' <summary>
+        ''' Hash value for SET_BIGMAP_ACTIVE native function
+        ''' </summary>
+        Private Const SET_BIGMAP_ACTIVE As Hash = CType(&H231C8F89, Hash)
+
+        ''' <summary>
+        ''' Whether the online map mode is enabled
+        ''' </summary>
+        Private Shared _enabled As Boolean = True
+
+        ''' <summary>
+        ''' Whether to show full map in online map mode
+        ''' </summary>
+        Private Shared _showFullMap As Boolean = False
+
+        ''' <summary>
+        ''' Gets or sets whether the online map mode is enabled
+        ''' </summary>
+        Public Shared Property Enabled As Boolean
+            Get
+                Return _enabled
+            End Get
+            Set(value As Boolean)
+                _enabled = value
+                ApplyMapMode()
+            End Set
+        End Property
+
+        ''' <summary>
+        ''' Gets or sets whether to show full map in online map mode
+        ''' </summary>
+        Public Shared Property ShowFullMap As Boolean
+            Get
+                Return _showFullMap
+            End Get
+            Set(value As Boolean)
+                _showFullMap = value
+                If _enabled Then
+                    ApplyMapMode()
+                End If
+            End Set
+        End Property
+
+        ''' <summary>
+        ''' Applies the current map mode settings
+        ''' </summary>
+        Public Shared Sub ApplyMapMode()
+            ' SET_BIGMAP_ACTIVE(BOOL toggleBigMap, BOOL showFullMap)
+            ' Using native function to set the big map mode
+            Native.Function.Call(Native.Hash._SET_RADAR_BIGMAP_ENABLED, _enabled, _showFullMap)
+        End Sub
+
+        ''' <summary>
+        ''' Toggles between different map modes
+        ''' </summary>
+        Public Shared Sub ToggleMapMode()
+            If _enabled Then
+                If _showFullMap Then
+                    ' If currently showing full map, disable online map mode
+                    _showFullMap = False
+                    _enabled = False
+                Else
+                    ' If showing regular online map, switch to full map
+                    _showFullMap = True
+                End If
+            Else
+                ' If disabled, enable online map mode
+                _enabled = True
+                _showFullMap = False
+            End If
+            ApplyMapMode()
+        End Sub
+    End Class
 End Class

@@ -30,6 +30,9 @@ Public Class MainMenuClient
     Private ReadOnly menu As NativeMenu
     Private Shared ReadOnly Rng As New Random()
 
+    ' Remove reference to ExperienceUI
+    ' Private Shared experienceUI As ExperienceUI = Nothing
+
     Public Sub New()
         MyBase.New()
         AddHandler Me.Tick, AddressOf OnTick
@@ -38,6 +41,9 @@ Public Class MainMenuClient
 
         ' The line "Dim directControl As New PlayerDirectControl()" has been removed.
         ' The game will automatically create an instance because PlayerDirectControl inherits from Script.
+
+        ' Initialize online map mode
+        Map.OnlineMapMode.ApplyMapMode()
 
         FrameTicker.Add(New FakePlayerLeaveNotifierProcessor())
         pool = New ObjectPool()
@@ -50,10 +56,22 @@ Public Class MainMenuClient
                                                             enableAntiNPCDriver.Checked = AntiNpcDriverPatch.Enabled
                                                         End Sub
         menu.Items.Add(enableAntiNPCDriver)
+        
+        ' Add online map mode toggle checkbox
+        Dim enableOnlineMapMode As NativeCheckboxItem = New NativeCheckboxItem("Online Map Mode", Map.OnlineMapMode.Enabled)
+        AddHandler enableOnlineMapMode.CheckboxChanged, Sub()
+                                                            Map.OnlineMapMode.Enabled = Not Map.OnlineMapMode.Enabled
+                                                            enableOnlineMapMode.Checked = Map.OnlineMapMode.Enabled
+                                                        End Sub
+        menu.Items.Add(enableOnlineMapMode)
+        
         AddMenu("载具", "访问个人载具选项", AddressOf VehicleMenuDialog.PopUp)
         AddMenu("人机玩家", "访问人机玩家控制菜单", AddressOf BotMenu.PopUp, True)
         AddMenu("玩家选项", "", AddressOf PlayerMenu.PopUp)
         AddMenu("一键修改为线上玩家", "随机给玩家线上的穿搭、面具、头发等，每次点击都会重新随机", AddressOf TransformToOnlinePlayer)
+        AddMenu("一键获得线上武器", "随机给玩家一把线上武器，带有随机皮肤", AddressOf GiveRandomOnlineWeapon)
+        ' Remove ExperienceUI menu item
+        ' AddMenu("显示经验值UI", "模拟GTA5线上模式的经验值UI显示", AddressOf ToggleExperienceUI)
         'AddMenu("~b~安保人员", "访问安保人员派遣菜单", AddressOf BotActorsDialog.PopUp)
         AddMenu("派出安保护送车辆", "派遣4名士兵前往玩家位置支援", AddressOf DispatchEmergencySquard)
         'AddMenu("投放重甲单位", "重甲单位或故事模式角色任意一方死亡将自动结束", AddressOf HeavyArmorService.StartHeavyArmor)
@@ -95,6 +113,15 @@ Public Class MainMenuClient
     End Sub
     Public Sub OnTick(sender As Object, e As EventArgs)
         pool.Process()
+        
+        ' Ensure map mode settings are applied
+        Static lastTick As DateTime = DateTime.Now
+        If (DateTime.Now - lastTick).TotalSeconds >= 5 Then
+            ' Reapply map mode settings every 5 seconds to prevent game from resetting it
+            Map.OnlineMapMode.ApplyMapMode()
+            lastTick = DateTime.Now
+        End If
+        
         ' All other Tick logic has been moved.
     End Sub
     Public Sub OnKeyDown(sender As Object, e As KeyEventArgs)
@@ -104,6 +131,20 @@ Public Class MainMenuClient
             UpgradeNearbyPed()
         ElseIf e.KeyCode = Keys.N Then
             BotMenu.AutoEnterVehicle()
+        ElseIf e.KeyCode = Keys.M Then
+            ' Toggle map mode when M key is pressed
+            Map.OnlineMapMode.ToggleMapMode()
+            
+            ' Show notification about current map mode
+            If Map.OnlineMapMode.Enabled Then
+                If Map.OnlineMapMode.ShowFullMap Then
+                    UI.Screen.ShowSubtitle("Map Mode: Online Full Map", 2000)
+                Else
+                    UI.Screen.ShowSubtitle("Map Mode: Online Mini Map", 2000)
+                End If
+            Else
+                UI.Screen.ShowSubtitle("Map Mode: Standard Map", 2000)
+            End If
         End If
     End Sub
     Private Shared Sub UpgradeNearbyPed()
@@ -171,6 +212,58 @@ Public Class MainMenuClient
     End Sub
     Private Sub AuthorInfo()
         Notification.PostTicker("chunchun" + vbNewLine + "modif for ", True)
+    End Sub
+    
+    ''' <summary>
+    ''' Give player a random online weapon with random tint
+    ''' </summary>
+    Private Sub GiveRandomOnlineWeapon()
+        menu.Visible = False
+        
+        ' Define online weapons (DLC weapons that are typically available in GTA Online)
+        Dim onlineWeapons As WeaponHash() = {
+            WeaponHash.SpecialCarbineMk2, WeaponHash.BullpupRifleMk2, WeaponHash.PumpShotgunMk2,
+            WeaponHash.MarksmanRifleMk2, WeaponHash.HeavySniperMk2, WeaponHash.SMGMk2,
+            WeaponHash.CombatMGMk2, WeaponHash.AssaultRifleMk2, WeaponHash.PistolMk2, 
+            WeaponHash.SNSPistolMk2, WeaponHash.RevolverMk2, WeaponHash.CarbineRifleMk2,
+            WeaponHash.UnholyHellbringer, WeaponHash.WidowMaker, WeaponHash.UpNAtomizer,
+            WeaponHash.CeramicPistol, WeaponHash.NavyRevolver, WeaponHash.PericoPistol,
+            WeaponHash.MilitaryRifle, WeaponHash.CombatShotgun, WeaponHash.HeavyRifle,
+            WeaponHash.ServiceCarbine, WeaponHash.PrecisionRifle
+        }
+        
+        ' Select a random weapon from the list
+        Dim selectedWeapon As WeaponHash = Pick(onlineWeapons)
+        
+        ' Give the weapon to the player with full ammo and set a random tint
+        Dim weapon As Weapon = PlayerPed.Weapons.Give(selectedWeapon, 9999, True, True)
+        
+        ' Set random tint
+        Dim tints As WeaponTint() = DirectCast([Enum].GetValues(GetType(WeaponTint)), WeaponTint())
+        Dim randomTint As WeaponTint = tints(Rng.Next(0, tints.Length))
+        weapon.Tint = randomTint
+        
+        ' Add random components if available
+        Try
+            ' Get all available components for this weapon
+            Dim availableComponents As WeaponComponentCollection = weapon.Components
+            
+            ' Get all component hashes for this weapon
+            Dim componentHashes As New List(Of WeaponComponentHash)()
+            
+            ' Try to add components based on their type
+            For Each component As WeaponComponent In availableComponents
+                If Rng.NextDouble() < 0.7 Then ' 70% chance to add each component
+                    component.Active = True
+                End If
+            Next
+        Catch ex As Exception
+            ' Silently ignore component errors
+        End Try
+        
+        ' Show notification with weapon name and tint
+        Dim tintName As String = [Enum].GetName(GetType(WeaponTint), randomTint)
+        UI.Screen.ShowSubtitle($"Received {Weapon.GetDisplayNameFromHash(selectedWeapon)} with {tintName} tint!")
     End Sub
     
     ''' <summary>

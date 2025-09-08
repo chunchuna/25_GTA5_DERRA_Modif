@@ -93,6 +93,7 @@
     <Compile Include="ManagedCollection.vb" />
     <Compile Include="Map.vb" />
     <Compile Include="MathFunctions.vb" />
+    <Compile Include="OnlineMapManager.vb" />
     <Compile Include="OnlinePlayer\HealingScript.vb" />
     <Compile Include="OnlinePlayer\OnlinePlayerOption.vb" />
     <Compile Include="OnlinePlayer\PlayerRegenerateScript.vb" />
