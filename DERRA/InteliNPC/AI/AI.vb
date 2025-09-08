@@ -232,6 +232,11 @@ Namespace InteliNPC.AI
         Private m_nameColorPrefix As String
         Private ReadOnly m_combatBehavior As OnlineCombatBehavior
 
+        ' 添加一个公共方法来获取可用的决策
+        Public Function GetAvailableDecision() As BotDecision
+            Return known_decisions.Values.FirstOrDefault(Function(d) d.IsAvaliableFor(Me))
+        End Function
+
         Public Function GetNameColor() As System.Drawing.Color
             ' Return color with 75% opacity (192/255)
             Return Color.FromArgb(192, m_nameColor)
@@ -239,7 +244,7 @@ Namespace InteliNPC.AI
 
         Public ReadOnly Property ColoredName As String
             Get
-                Return $"{m_nameColorPrefix}{Name}~s~"
+                Return $"{m_nameColorPrefix}~h~{Name}~h~~s~"
             End Get
         End Property
         ''' <summary>
@@ -303,7 +308,7 @@ Namespace InteliNPC.AI
             ped.ShootRate = 1000 ' 使用ShootRate属性
             
             ' 设置精准度波动，模拟玩家的不稳定射击
-            Accuracy = Pick({35, 45, 55, 65, 75})
+            Accuracy = Pick({5, 10, 15, 16, 20})
             
             ' 设置战斗范围为中等距离，不会过远也不会太近
             ped.CombatRange = CombatRange.Medium
@@ -403,7 +408,7 @@ Namespace InteliNPC.AI
             Set(value As Integer?)
                 m_wantedAmount = value
                 If value.HasValue Then
-                    Notification.PostTicker($" {Name}  <font size='11'>遭到悬赏 , 悬赏金为${value}</font>", False)
+                    Notification.PostTicker($" ~h~{Name}~h~  <font size='11'>遭到悬赏 , 悬赏金为${value}</font>", False)
                     Ped.AttachedBlip.Sprite = BlipSprite.BountyHit
                 End If
             End Set
@@ -576,29 +581,9 @@ Namespace InteliNPC.AI
                 '动作完成，释放资源。
                 current_action.Dispose()
                 '根据马尔科夫链选择下一个动作
-
-                Dim next_choices = Logic.GetNextDecisions(current_action.DecisionName)
-                'Bot.Log(Name, "理论上下一个动作的可能为：" & next_choices.Count)
-                Dim next_avaliable_choices As New List(Of DecisionMatrix.Choice)(next_choices.Count)
-                For Each choice In next_choices
-                    Dim decision As BotDecision = known_decisions.Item(choice.NextDecisionName)
-                    If decision.IsAvaliableFor(Me) Then
-                        'Bot.Log(Name, decision.Name + "合适:" + choice.ToString())
-                        next_avaliable_choices.Add(choice)
-                    Else
-                        'Bot.Log(Name, decision.Name + "不合适:" + choice.ToString())
-                    End If
-                Next
-                Dim next_decision_name As String = DecisionMatrix.Pick(next_avaliable_choices)
-                Log(Name, $"选择下一个动作{next_decision_name}({next_avaliable_choices.Count}/{next_choices.Count})")
-                '执行下一个动作
-                Dim action = known_decisions.Item(next_decision_name).GetAction(Me)
-                '设置属性
-                action.Invoker = Me
-                action.DecisionName = next_decision_name
-                current_action = action
-                'Log(Name, "执行 " + current_action.DecisionName)
-                action.Run()
+                
+                ' 尝试选择新的动作
+                TrySelectNextAction()
             End If
             'Ped.AttachedBlip.Name = Name + ":" + current_action.DecisionName
 
@@ -623,6 +608,91 @@ Namespace InteliNPC.AI
             End If
 
         End Sub
+        
+        ' 添加一个新方法来选择下一个动作，这样可以在多个地方调用
+        Private Function TrySelectNextAction() As Boolean
+            Try
+                Dim next_choices = Logic.GetNextDecisions(current_action.DecisionName)
+                'Bot.Log(Name, "理论上下一个动作的可能为：" & next_choices.Count)
+                Dim next_avaliable_choices As New List(Of DecisionMatrix.Choice)(next_choices.Count)
+                For Each choice In next_choices
+                    Dim decision As BotDecision = known_decisions.Item(choice.NextDecisionName)
+                    If decision.IsAvaliableFor(Me) Then
+                        'Bot.Log(Name, decision.Name + "合适:" + choice.ToString())
+                        next_avaliable_choices.Add(choice)
+                    Else
+                        'Bot.Log(Name, decision.Name + "不合适:" + choice.ToString())
+                    End If
+                Next
+                
+                ' 如果没有可用的选择，尝试使用默认决策
+                If next_avaliable_choices.Count = 0 Then
+                    ' 尝试找一个可用的决策
+                    Dim fallbackDecision As BotDecision = known_decisions.Values.FirstOrDefault(Function(d) d.IsAvaliableFor(Me))
+                    If fallbackDecision IsNot Nothing Then
+                        Dim fallbackAction = fallbackDecision.GetAction(Me)
+                        fallbackAction.Invoker = Me
+                        fallbackAction.DecisionName = fallbackDecision.Name
+                        current_action = fallbackAction
+                        fallbackAction.Run()
+                        Return True
+                    Else
+                        ' 如果真的没有可用决策，返回失败
+                        Return False
+                    End If
+                End If
+                
+                Dim next_decision_name As String = DecisionMatrix.Pick(next_avaliable_choices)
+                Log(Name, $"选择下一个动作{next_decision_name}({next_avaliable_choices.Count}/{next_choices.Count})")
+                '执行下一个动作
+                Dim nextAction = known_decisions.Item(next_decision_name).GetAction(Me)
+                '设置属性
+                nextAction.Invoker = Me
+                nextAction.DecisionName = next_decision_name
+                current_action = nextAction
+                'Log(Name, "执行 " + current_action.DecisionName)
+                nextAction.Run()
+                Return True
+            Catch ex As Exception
+                ' 如果选择动作过程中出错，尝试使用EmptyDecision
+                Try
+                    If known_decisions.ContainsKey("EmptyDecision") Then
+                        Dim emptyDecision = known_decisions("EmptyDecision")
+                        Dim emptyAction = emptyDecision.GetAction(Me)
+                        emptyAction.Invoker = Me
+                        emptyAction.DecisionName = "EmptyDecision"
+                        current_action = emptyAction
+                        emptyAction.Run()
+                        Return True
+                    End If
+                Catch innerEx As Exception
+                    ' 如果连EmptyDecision都失败，只能返回失败
+                End Try
+                Return False
+            End Try
+        End Function
+        
+        ' 添加一个公共方法，用于外部重置AI的行为
+        Public Function ResetBehavior() As Boolean
+            Try
+                ' 清除当前任务
+                Ped.Task.ClearAll()
+                
+                ' 如果在载具中且可能卡住，尝试离开载具
+                If Ped.IsInVehicle() AndAlso Not m_positionChanged Then
+                    Ped.Task.LeaveVehicle(LeaveVehicleFlags.LeaveDoorOpen)
+                    Script.Wait(500) ' 给一点时间让AI离开载具
+                End If
+                
+                ' 释放当前动作
+                current_action?.Dispose()
+                
+                ' 尝试选择新的动作
+                Return TrySelectNextAction()
+            Catch ex As Exception
+                Return False
+            End Try
+        End Function
 
         Public Sub Disposing() Implements IEntityController.Disposing
             current_action?.Dispose()
@@ -635,60 +705,65 @@ Namespace InteliNPC.AI
                 If killer?.EntityType = EntityType.Vehicle Then
                     killer = TryCast(killer, Vehicle)?.Driver
                 End If
-                If killer?.AttachedBlip?.Exists() Then
+                
+                ' 改进击杀通知逻辑，不再依赖Blip存在
+                If killer IsNot Nothing Then
                     Dim killer_name As String = BotFactory.GetBotNameByPed(killer)
+                    
+                    ' 自杀情况
                     If killer_name = Name Then
                         Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(139, 139, 139, 0.7)'>自杀了。</font>", False)
-                    Else
-                        If String.IsNullOrWhiteSpace(killer_name) Then
-                            Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了。</font>", False)
+                    
+                    ' 被玩家击杀
+                    ElseIf killer = PlayerPed Then
+                        '统计数量，检测是否需要破防退游
+                        KilledByPlayer += 1
+                        If KilledByPlayer >= MaxBeKilledTimes Then
+                            ExitGame()
                         Else
-                            Dim killerBot = BotFactory.GetBotByPed(killer)
-                            If killerBot IsNot Nothing Then
-                                Notification.PostTicker($" {killerBot.ColoredName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName}。 ", False)
-                            Else
-                                Notification.PostTicker($" {killer_name}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName}。", False)
-                            End If
+                            Notification.PostTicker($" {PlayerName.DisplayName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {ColoredName}。 ", False)
+                            Versus.PlayerScore(Name) += 1
+                            Versus.ShowScore(Ped, Name)
+                            IsAlly = False
+                        End If
+
+                        '如果AI难度自适应的话就增加全体AI难度
+                        If BotPlayerOptions.AdaptiveBot Then
+                            BotPlayerOptions.Weeker()
+                        End If
+                    
+                    ' 被其他AI击杀
+                    Else
+                        Dim killerBot = BotFactory.GetBotByPed(killer)
+                        If killerBot IsNot Nothing Then
+                            ' 被其他AI击杀
+                            Notification.PostTicker($" {killerBot.ColoredName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName}。 ", False)
+                        ElseIf Not String.IsNullOrWhiteSpace(killer_name) Then
+                            ' 被其他实体击杀，但有名字
+                            Notification.PostTicker($" ~h~{killer_name}~h~  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName}。", False)
+                        Else
+                            ' 被未知实体击杀
+                            Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了。</font>", False)
                         End If
                     End If
-                ElseIf killer = PlayerPed Then
-                    '统计数量，检测是否需要破防退游
-                    KilledByPlayer += 1
-                    If KilledByPlayer >= MaxBeKilledTimes Then
-                        ExitGame()
-                    Else
-                        Notification.PostTicker($" {PlayerName.DisplayName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {ColoredName}。 ", False)
-                        Versus.PlayerScore(Name) += 1
-                        Versus.ShowScore(Ped, Name)
-                        IsAlly = False
-                    End If
-
-
-                    '如果AI难度自适应的话就增加全体AI难度
-                    If BotPlayerOptions.AdaptiveBot Then
-                        BotPlayerOptions.Weeker()
-                    End If
-                Else
-                    Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了。</font>", False)
-                End If
-                If WantedAmount.HasValue Then
-                    If Ped.Killer?.Exists() Then
-                        If Ped.Killer = PlayerPed Then
+                    
+                    ' 处理悬赏金
+                    If WantedAmount.HasValue Then
+                        If killer = PlayerPed Then
                             Game.Player.Money += WantedAmount.Value
-                        ElseIf Ped.Killer.AttachedBlip?.Exists() Then
-                            Dim killer_bot As Bot = BotFactory.GetBotByPed(Ped.Killer)
+                            Notification.PostTicker($"<font size='11'>您获得了对</font> {ColoredName} <font size='11'>的悬赏金 ${WantedAmount}</font>", False)
+                        ElseIf BotFactory.IsBot(killer) Then
+                            Dim killer_bot As Bot = BotFactory.GetBotByPed(killer)
                             If killer_bot IsNot Nothing Then
                                 Notification.PostTicker($"<font size='11'>对</font>  {ColoredName}  <font size='11'>发起的悬赏追杀的悬赏金 ${WantedAmount} 已由</font> {killer_bot.ColoredName} <font size='11'>夺得</font>", False)
-                            Else
-                                Dim killer_name As String = Ped.Killer?.AttachedBlip?.Name
-                                If Not String.IsNullOrWhiteSpace(killer_name) Then
-                                    Notification.PostTicker($"<font size='11'>对</font>  {ColoredName}  <font size='11'>发起的悬赏追杀的悬赏金 ${WantedAmount} 已由</font>  {killer_name}  <font size='11'>夺得</font>", False)
-                                End If
                             End If
-
                         End If
                     End If
+                Else
+                    ' 没有明确的杀手，显示默认死亡消息
+                    Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了。</font>", False)
                 End If
+                
                 '重生
                 If Not hasExitGame AndAlso BotPlayerOptions.CanBotRegenerate.Enabled AndAlso BotFactory.Pool.Count > 1 Then
                     If Ped.Exists() Then
@@ -717,7 +792,7 @@ Namespace InteliNPC.AI
                         End If
 
                     Else
-                        Notification.PostTicker(Name + " ~o~重生失败", True)
+                        Notification.PostTicker($"~h~{Name}~h~ ~o~重生失败", True)
                         'Dim bot As Bot = BotFactory.CreateBot()
                         'bot.Logic.CopyFrom(Logic)
                         'bot.Logic.Learn(Pick(BotFactory.Pool.ToArray).Logic)
@@ -1457,7 +1532,7 @@ Namespace InteliNPC.AI
                     Loop While usedNames.Contains(randomName)
 
                     usedNames.Add(randomName)
-                    Notification.PostTicker($" {randomName}  <font size='9' color='rgba(255,255,255,0.7)'>已离开。</font>", False)
+                    Notification.PostTicker($" ~h~{randomName}~h~  <font size='9' color='rgba(255,255,255,0.7)'>已离开。</font>", False)
                 Next
                 ScheduleNextNotification()
             End If

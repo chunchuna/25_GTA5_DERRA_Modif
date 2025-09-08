@@ -2,6 +2,7 @@
 Imports System.Collections.ObjectModel
 Imports System.Drawing
 Imports System.IO
+Imports System.Linq
 Imports System.Text
 Imports System.Windows.Forms
 Imports System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar
@@ -27,6 +28,7 @@ Public Class MainMenuClient
     Inherits Script
     Private ReadOnly pool As ObjectPool
     Private ReadOnly menu As NativeMenu
+    Private Shared ReadOnly Rng As New Random()
 
     Public Sub New()
         MyBase.New()
@@ -51,6 +53,7 @@ Public Class MainMenuClient
         AddMenu("载具", "访问个人载具选项", AddressOf VehicleMenuDialog.PopUp)
         AddMenu("人机玩家", "访问人机玩家控制菜单", AddressOf BotMenu.PopUp, True)
         AddMenu("玩家选项", "", AddressOf PlayerMenu.PopUp)
+        AddMenu("一键修改为线上玩家", "随机给玩家线上的穿搭、面具、头发等，每次点击都会重新随机", AddressOf TransformToOnlinePlayer)
         'AddMenu("~b~安保人员", "访问安保人员派遣菜单", AddressOf BotActorsDialog.PopUp)
         AddMenu("派出安保护送车辆", "派遣4名士兵前往玩家位置支援", AddressOf DispatchEmergencySquard)
         'AddMenu("投放重甲单位", "重甲单位或故事模式角色任意一方死亡将自动结束", AddressOf HeavyArmorService.StartHeavyArmor)
@@ -169,6 +172,71 @@ Public Class MainMenuClient
     Private Sub AuthorInfo()
         Notification.PostTicker("chunchun" + vbNewLine + "modif for ", True)
     End Sub
+    
+    ''' <summary>
+    ''' Transform player to random online player style
+    ''' </summary>
+    Private Sub TransformToOnlinePlayer()
+        menu.Visible = False
+        UI.Screen.ShowSubtitle("Transforming to online player style...")
+        
+        ' Store the original model to restore if needed
+        Dim currentModel As Model = PlayerPed.Model
+        
+        ' Change to FreemodeMale01 model if not already
+        If Not PlayerPed.Model.Equals(PedHash.FreemodeMale01) AndAlso Not PlayerPed.Model.Equals(PedHash.FreemodeFemale01) Then
+            Game.Player.ChangeModel(PedHash.FreemodeMale01)
+            Wait(500) ' Wait for model to load
+        End If
+        
+        ' Random face blend
+        Dim father As Integer = Pick(45, 0)
+        Dim mother As Integer = Pick(45, 0)
+        Dim skin_mix As Single = Pick(100) / 100
+        Dim shape_mix As Single = Pick(100) / 100
+        PedStyles.SetHeadBlendData(PlayerPed, New HeadBlendData(father, mother, father, father, mother, mother, skin_mix, shape_mix, shape_mix))
+        
+        ' Random eye color
+        [Function].Call(Hash.SET_HEAD_BLEND_EYE_COLOR, PlayerPed, Pick(30))
+        
+        ' Random components
+        With PlayerPed.Style
+            ' Random hair style
+            Dim hairComponent As PedComponent = .Item(PedComponentType.Hair)
+            If hairComponent.HasVariations Then
+                hairComponent.SetVariation(Rng.Next(0, hairComponent.Count))
+            End If
+            
+            ' Set vibrant hair color (using native function)
+            ' Hair color primary and highlight
+            Dim vibrantColors As Integer() = {2, 3, 4, 5, 8, 9, 26, 27, 28, 29, 35, 36, 37, 38, 53, 54, 55, 61, 62, 63}
+            [Function].Call(CType(&H4CFFC65454C93A49, Hash), PlayerPed, Pick(vibrantColors), Pick(vibrantColors))
+            
+            ' Random mask (70% chance)
+            If Rng.NextDouble() < 0.7 Then
+                Dim maskComponent = .Item(CType(1, PedComponentType)) ' Mask component ID is 1
+                If maskComponent.HasVariations Then
+                    maskComponent.SetVariation(Rng.Next(0, maskComponent.Count))
+                End If
+            End If
+            
+            ' Random clothing
+            .Item(PedComponentType.Torso).SetVariation(Pick(Enumerable.Range(0, 196).ToList))
+            .Item(PedComponentType.Legs).SetVariation(Pick(Enumerable.Range(0, 100).ToList))
+            .Item(PedComponentType.Shoes).SetVariation(Pick(Enumerable.Range(0, 80).ToList))
+            .Item(PedComponentType.Torso2).SetVariation(Pick(Enumerable.Range(0, 350).ToList))
+            
+            ' Random accessories
+            .Item(PedPropAnchorPoint.Head).SetVariation(Pick({-1, Pick(Enumerable.Range(0, 150).ToList)}))
+            .Item(PedPropAnchorPoint.Eyes).SetVariation(Pick({-1, Pick(Enumerable.Range(0, 30).ToList)}))
+            .Item(PedPropAnchorPoint.Ears).SetVariation(Pick({-1, Pick(Enumerable.Range(0, 30).ToList)}))
+            .Item(PedPropAnchorPoint.LeftWrist).SetVariation(Pick({-1, Pick(Enumerable.Range(0, 20).ToList)}))
+            .Item(PedPropAnchorPoint.RightWrist).SetVariation(Pick({-1, Pick(Enumerable.Range(0, 20).ToList)}))
+        End With
+        
+        UI.Screen.ShowSubtitle("Online player style applied!")
+    End Sub
+
     ''' <summary>
     ''' 保存服装代码文件
     ''' </summary>

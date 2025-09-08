@@ -86,12 +86,12 @@ Namespace InteliNPC.AI.Decisions
 
             Public Overrides Function IsCompleted() As Boolean
                 If Invoker.Ped.Position.DistanceTo(destination) < 20 Then
-                    Notification.PostTicker(Invoker.Name + " 已抵达玩家召见的位置", False)
+                    Notification.PostTicker($"~h~{Invoker.Name}~h~ 已抵达玩家召见的位置", False)
                     Return True
                 End If
                 If Not Invoker.PositionChanged Then
                     If Invoker.Ped.IsOnFoot Then
-                        Notification.PostTicker(Invoker.Name + " 途中发生意外，取消任务", False)
+                        Notification.PostTicker($"~h~{Invoker.Name}~h~ 途中发生意外，取消任务", False)
                         Return True
                     End If
                     position_not_changed += 1
@@ -132,13 +132,13 @@ Namespace InteliNPC.AI.Decisions
             Public Overrides Function IsCompleted() As Boolean
                 waited_times += 1
                 If waited_times > 20 Then
-                    Notification.PostTicker(Invoker.Name + " 等待超时", True)
+                    Notification.PostTicker($"~h~{Invoker.Name}~h~ 等待超时", True)
                     Return True
                 ElseIf Not Invoker.Ped.IsInVehicle() Then
-                    Notification.PostTicker(Invoker.Name + " 离开载具", True)
+                    Notification.PostTicker($"~h~{Invoker.Name}~h~ 离开载具", True)
                     Return True
                 ElseIf PlayerPed.IsInVehicle(Invoker.Ped.CurrentVehicle) Then
-                    Notification.PostTicker("玩家已进入 " + Invoker.Name + " 的载具", True)
+                    Notification.PostTicker($"玩家已进入 ~h~{Invoker.Name}~h~ 的载具", True)
                     Return True
                 Else
                     Return False
