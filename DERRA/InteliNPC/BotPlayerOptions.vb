@@ -50,7 +50,7 @@ Public Class BotPlayerOptions
     Private Sub BotPlayerGenerator_Tick(sender As Object, e As EventArgs) Handles Me.Tick
         If AutoGenerateBots Then
             BotFactory.Pool.Update()
-            If BotFactory.Pool.Count < 50 Then
+            If BotFactory.Pool.Count < 150 Then
                 If UseOnlineCharacterModel Then
                     BotFactory.CreateRandomOnlinePlayer() '.CreateBot()
                 Else

@@ -311,7 +311,17 @@ Namespace InteliNPC.AI
             ' 设置为全自动射击模式
             ped.FiringPattern = FiringPattern.FullAuto
             
+            ' 增强对玩家的敌对性
+            ' 默认设置为非友好，增加与玩家的敌对性
+            ped.RelationshipGroup = MissionHelper.EnermyRelationshipGroup
+            
+            ' 增加听觉和视觉范围，使AI能更远距离发现玩家
+            ped.SeeingRange = 150.0F
+            ped.HearingRange = 100.0F
+            
+            ' 防止AI受到伤害时中断行为
             ped.PedConfigFlags.SetConfigFlag(PedConfigFlagToggles.DisableHurt, True)
+            
             OwnedWeapons = New NpcWeaponCollection(ped)
             Me.known_decisions = New Dictionary(Of String, BotDecision)()
             For Each decision As BotDecision In known_decisions
@@ -379,7 +389,7 @@ Namespace InteliNPC.AI
         End Sub
         Public Sub ExitGame()
             hasExitGame = True
-            'Notification.PostTicker($" {Name}  <font size='9' color='rgba(255,255,255,0.7)'>已离开</font>", False)
+            'Notification.PostTicker($" {Name}  <font size='9' color='rgba(255,255,255,0.7)'>已离开。</font>", False)
         End Sub
         Public ReadOnly Property CurrentActionName As String
             Get
@@ -628,16 +638,16 @@ Namespace InteliNPC.AI
                 If killer?.AttachedBlip?.Exists() Then
                     Dim killer_name As String = BotFactory.GetBotNameByPed(killer)
                     If killer_name = Name Then
-                        Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(139, 139, 139, 0.7)'>自杀了</font>", False)
+                        Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(139, 139, 139, 0.7)'>自杀了。</font>", False)
                     Else
                         If String.IsNullOrWhiteSpace(killer_name) Then
-                            Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了</font>", False)
+                            Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了。</font>", False)
                         Else
                             Dim killerBot = BotFactory.GetBotByPed(killer)
                             If killerBot IsNot Nothing Then
-                                Notification.PostTicker($" {killerBot.ColoredName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName} ", False)
+                                Notification.PostTicker($" {killerBot.ColoredName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName}。 ", False)
                             Else
-                                Notification.PostTicker($" {killer_name}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName} ", False)
+                                Notification.PostTicker($" {killer_name}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName}。", False)
                             End If
                         End If
                     End If
@@ -647,7 +657,7 @@ Namespace InteliNPC.AI
                     If KilledByPlayer >= MaxBeKilledTimes Then
                         ExitGame()
                     Else
-                        Notification.PostTicker($" {PlayerName.DisplayName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {ColoredName} ", False)
+                        Notification.PostTicker($" {PlayerName.DisplayName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {ColoredName}。 ", False)
                         Versus.PlayerScore(Name) += 1
                         Versus.ShowScore(Ped, Name)
                         IsAlly = False
@@ -659,7 +669,7 @@ Namespace InteliNPC.AI
                         BotPlayerOptions.Weeker()
                     End If
                 Else
-                    Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了</font>", False)
+                    Notification.PostTicker($" {ColoredName}  <font size='9' color='rgba(255,255,255,0.7)'>死了。</font>", False)
                 End If
                 If WantedAmount.HasValue Then
                     If Ped.Killer?.Exists() Then
@@ -1169,9 +1179,12 @@ Namespace InteliNPC.AI
             ' 检查是否有战斗目标
             m_combatTarget = m_bot.Ped.CombatTarget
             
-            ' 如果没有战斗目标，尝试检测附近的敌对目标
+            ' 无论是否有战斗目标，都主动检测潜在目标
+            ' 这确保了PED会更积极地寻找并攻击玩家
+            DetectPotentialTargets()
+            
+            ' 如果没有战斗目标或者目标已死亡，直接返回
             If m_combatTarget Is Nothing OrElse Not m_combatTarget.Exists() OrElse m_combatTarget.IsDead Then
-                DetectPotentialTargets()
                 Return
             End If
             
@@ -1206,6 +1219,8 @@ Namespace InteliNPC.AI
         Private Sub DetectPotentialTargets()
             ' 如果在载具中，不主动寻找目标
             If m_bot.Ped.IsInVehicle() Then
+                ' 在载具中时，检测是否可以撞击玩家
+                DetectVehicleRamTargets()
                 Return
             End If
             
@@ -1213,9 +1228,72 @@ Namespace InteliNPC.AI
             Dim playerPed As Ped = Game.Player.Character
             If playerPed.Exists() AndAlso playerPed.IsAlive AndAlso Not m_bot.IsAlly Then
                 Dim distanceToPlayer As Single = m_bot.Ped.Position.DistanceTo(playerPed.Position)
-                If distanceToPlayer < COMBAT_DISTANCE_THRESHOLD AndAlso m_rng.NextDouble() < 0.1 Then
-                    ' 有10%的概率主动攻击玩家
+                ' 增加主动攻击概率，从10%提高到50%
+                If distanceToPlayer < COMBAT_DISTANCE_THRESHOLD AndAlso m_rng.NextDouble() < 0.9 Then
+                    ' 主动攻击玩家
                     m_bot.Ped.Task.FightAgainst(playerPed)
+                    ' 确保AI不会停止战斗
+                    m_bot.Ped.SetCombatAttribute(CombatAttributes.AlwaysFight, True)
+                    m_bot.Ped.BlockPermanentEvents = True
+                End If
+            End If
+        End Sub
+        
+        ' 检测载具撞击目标
+        Private Sub DetectVehicleRamTargets()
+            ' 只有当AI在载具中并且是驾驶员时才执行
+            If Not m_bot.Ped.IsInVehicle() OrElse m_bot.Ped.SeatIndex <> VehicleSeat.Driver Then
+                Return
+            End If
+            
+            Dim vehicle As Vehicle = m_bot.Ped.CurrentVehicle
+            If vehicle Is Nothing Then
+                Return
+            End If
+            
+            ' 检测附近的玩家
+            Dim playerPed As Ped = Game.Player.Character
+            If playerPed.Exists() AndAlso playerPed.IsAlive AndAlso Not m_bot.IsAlly Then
+                Dim distanceToPlayer As Single = vehicle.Position.DistanceTo(playerPed.Position)
+                ' 增加检测距离到150米，提高撞击概率到80%
+                If distanceToPlayer < 150.0F AndAlso m_rng.NextDouble() < 0.8 Then
+                    ' 增加车辆速度，使撞击更有力
+                    Dim currentSpeed As Single = vehicle.Speed
+                    If currentSpeed < 20.0F Then
+                        vehicle.Speed = 30.0F
+                    End If
+                    
+                    ' 如果玩家在载具中，撞击玩家的载具
+                    If playerPed.IsInVehicle() Then
+                        Dim playerVehicle As Vehicle = playerPed.CurrentVehicle
+                        If playerVehicle IsNot Nothing Then
+                            ' 使用原生任务函数执行撞击，增加速度和精度参数
+                            ' 参数说明：
+                            ' 13 = CTaskVehicleMissionFlag::MISSION_RAM
+                            ' 80.0F = 最大速度
+                            ' 786603 = 驾驶标志(激进驾驶)
+                            ' 10.0F = 最小距离(越小越激进)
+                            ' 5.0F = 精度(越小越精确)
+                            [Function].Call(Hash.TASK_VEHICLE_MISSION, m_bot.Ped, vehicle, playerVehicle, 13, 80.0F, 786603, 10.0F, 5.0F, True)
+                            
+                            ' 设置车辆不会减速，保持高速撞击
+                            [Function].Call(Hash.SET_VEHICLE_FORWARD_SPEED, vehicle, 50.0F)
+                            
+                            ' 设置驾驶员更激进
+                            m_bot.Ped.DrivingAggressiveness = 1.0F
+                            m_bot.Ped.VehicleDrivingFlags = VehicleDrivingFlags.AvoidVehicles Or VehicleDrivingFlags.AllowGoingWrongWay Or VehicleDrivingFlags.AllowMedianCrossing
+                        End If
+                    Else
+                        ' 如果玩家在步行，直接朝玩家位置驾驶
+                        [Function].Call(Hash.TASK_VEHICLE_MISSION, m_bot.Ped, vehicle, playerPed, 13, 80.0F, 786603, 10.0F, 5.0F, True)
+                        
+                        ' 设置车辆不会减速，保持高速撞击
+                        [Function].Call(Hash.SET_VEHICLE_FORWARD_SPEED, vehicle, 50.0F)
+                        
+                        ' 设置驾驶员更激进
+                        m_bot.Ped.DrivingAggressiveness = 1.0F
+                        m_bot.Ped.VehicleDrivingFlags = VehicleDrivingFlags.AvoidVehicles Or VehicleDrivingFlags.AllowGoingWrongWay Or VehicleDrivingFlags.AllowMedianCrossing
+                    End If
                 End If
             End If
         End Sub
@@ -1379,7 +1457,7 @@ Namespace InteliNPC.AI
                     Loop While usedNames.Contains(randomName)
 
                     usedNames.Add(randomName)
-                    Notification.PostTicker($" {randomName}  <font size='9' color='rgba(255,255,255,0.7)'>已离开</font>", False)
+                    Notification.PostTicker($" {randomName}  <font size='9' color='rgba(255,255,255,0.7)'>已离开。</font>", False)
                 Next
                 ScheduleNextNotification()
             End If
