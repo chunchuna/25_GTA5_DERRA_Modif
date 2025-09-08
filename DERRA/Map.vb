@@ -51,6 +51,7 @@ Public Class Map
         ''' Hash value for SET_BIGMAP_ACTIVE native function
         ''' </summary>
         Private Const SET_BIGMAP_ACTIVE As Hash = CType(&H231C8F89, Hash)
+        Private Const SET_RADAR_BIGMAP_ENABLED As Hash = CType(&H231C8F89D0539D8F, Hash)
 
         ''' <summary>
         ''' Whether the online map mode is enabled
@@ -96,7 +97,7 @@ Public Class Map
         Public Shared Sub ApplyMapMode()
             ' SET_BIGMAP_ACTIVE(BOOL toggleBigMap, BOOL showFullMap)
             ' Using native function to set the big map mode
-            Native.Function.Call(Native.Hash._SET_RADAR_BIGMAP_ENABLED, _enabled, _showFullMap)
+            Native.Function.Call(SET_RADAR_BIGMAP_ENABLED, _enabled, _showFullMap)
         End Sub
 
         ''' <summary>
