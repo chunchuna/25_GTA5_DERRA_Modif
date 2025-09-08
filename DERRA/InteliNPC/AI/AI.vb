@@ -276,6 +276,7 @@ Namespace InteliNPC.AI
             ped.SetConfigFlag(PedConfigFlagToggles.DisableExplosionReactions, True)
             [Function].Call(Hash.STOP_PED_SPEAKING, ped, True)
             [Function].Call(Hash.DISABLE_PED_PAIN_AUDIO, ped, True)
+            [Function].Call(Hash.SET_AI_WEAPON_DAMAGE_MODIFIER, ped, 0.05F) ' 将AI伤害降低到50%
             ped.CombatAbility = CombatAbility.Professional
             ped.SetCombatAttribute(CombatAttributes.CanUseCover, False)
             ped.SetCombatAttribute(CombatAttributes.CanDoDrivebys, True)
@@ -288,7 +289,7 @@ Namespace InteliNPC.AI
             ped.SetCombatAttribute(CombatAttributes.CanShootWithoutLos, True)
 
             ped.SetCombatAttribute(CombatAttributes.UseProximityAccuracy, False)
-            ped.SetCombatAttribute(CombatAttributes.MaintainMinDistanceToTarget, False)
+            ped.SetCombatAttribute(CombatAttributes.MaintainMinDistanceToTarget, True)
             ped.SetCombatAttribute(CombatAttributes.CanUsePeekingVariations, False)
             ped.SetCombatAttribute(CombatAttributes.CanCommandeerVehicles, True)
             ped.SetCombatAttribute(CombatAttributes.CanUsePeekingVariations, False)
@@ -311,7 +312,7 @@ Namespace InteliNPC.AI
             Accuracy = Pick({5, 10, 15, 16, 20})
             
             ' 设置战斗范围为中等距离，不会过远也不会太近
-            ped.CombatRange = CombatRange.Medium
+            ped.CombatRange = CombatRange.Far
             
             ' 设置为全自动射击模式
             ped.FiringPattern = FiringPattern.FullAuto
@@ -321,8 +322,8 @@ Namespace InteliNPC.AI
             ped.RelationshipGroup = MissionHelper.EnermyRelationshipGroup
             
             ' 增加听觉和视觉范围，使AI能更远距离发现玩家
-            ped.SeeingRange = 150.0F
-            ped.HearingRange = 100.0F
+            ped.SeeingRange = 1000.0F
+            ped.HearingRange = 1000.0F
             
             ' 防止AI受到伤害时中断行为
             ped.PedConfigFlags.SetConfigFlag(PedConfigFlagToggles.DisableHurt, True)
@@ -1220,12 +1221,12 @@ Namespace InteliNPC.AI
         Private Const STRAFE_DISTANCE As Single = 5.0F ' 左右位移距离
         Private Const STRAFE_SPEED As Single = 10.0F ' 位移速度
         Private Const STRAFE_INTERVAL_MIN As Integer = 500 ' 最短位移间隔(毫秒)
-        Private Const STRAFE_INTERVAL_MAX As Integer = 2000 ' 最长位移间隔(毫秒)
-        Private Const JUMP_CHANCE As Single = 0.02F ' 每次更新跳跃的概率
+        Private Const STRAFE_INTERVAL_MAX As Integer = 600 ' 最长位移间隔(毫秒)
+        Private Const JUMP_CHANCE As Single = 0.08F ' 每次更新跳跃的概率
         Private Const COMBAT_DISTANCE_THRESHOLD As Single = 50.0F ' 激活战斗行为的距离阈值
         Private Const ROLL_CHANCE As Single = 0.01F ' 每次更新翻滚的概率
-        Private Const RANDOM_SHOOT_CHANCE As Single = 0.05F ' 随机射击的概率
-        Private Const WEAPON_SWITCH_CHANCE As Single = 0.005F ' 随机切换武器的概率
+        Private Const RANDOM_SHOOT_CHANCE As Single = 0.09F ' 随机射击的概率
+        Private Const WEAPON_SWITCH_CHANCE As Single = 0.007F ' 随机切换武器的概率
 
         ' 状态变量
         Private m_lastStrafeTime As Integer = 0
@@ -1335,7 +1336,7 @@ Namespace InteliNPC.AI
                     ' 增加车辆速度，使撞击更有力
                     Dim currentSpeed As Single = vehicle.Speed
                     If currentSpeed < 20.0F Then
-                        vehicle.Speed = 30.0F
+                        vehicle.Speed = 15.0F
                     End If
                     
                     ' 如果玩家在载具中，撞击玩家的载具
@@ -1345,14 +1346,14 @@ Namespace InteliNPC.AI
                             ' 使用原生任务函数执行撞击，增加速度和精度参数
                             ' 参数说明：
                             ' 13 = CTaskVehicleMissionFlag::MISSION_RAM
-                            ' 80.0F = 最大速度
+                            ' 120.0F = 最大速度
                             ' 786603 = 驾驶标志(激进驾驶)
                             ' 10.0F = 最小距离(越小越激进)
                             ' 5.0F = 精度(越小越精确)
-                            [Function].Call(Hash.TASK_VEHICLE_MISSION, m_bot.Ped, vehicle, playerVehicle, 13, 80.0F, 786603, 10.0F, 5.0F, True)
+                            [Function].Call(Hash.TASK_VEHICLE_MISSION, m_bot.Ped, vehicle, playerVehicle, 13, 30.0F, 786603, 10.0F, 5.0F, True)
                             
                             ' 设置车辆不会减速，保持高速撞击
-                            [Function].Call(Hash.SET_VEHICLE_FORWARD_SPEED, vehicle, 50.0F)
+                            [Function].Call(Hash.SET_VEHICLE_FORWARD_SPEED, vehicle, 40.0F)
                             
                             ' 设置驾驶员更激进
                             m_bot.Ped.DrivingAggressiveness = 1.0F
@@ -1360,7 +1361,7 @@ Namespace InteliNPC.AI
                         End If
                     Else
                         ' 如果玩家在步行，直接朝玩家位置驾驶
-                        [Function].Call(Hash.TASK_VEHICLE_MISSION, m_bot.Ped, vehicle, playerPed, 13, 80.0F, 786603, 10.0F, 5.0F, True)
+                        [Function].Call(Hash.TASK_VEHICLE_MISSION, m_bot.Ped, vehicle, playerPed, 13, 50.0F, 786603, 10.0F, 5.0F, True)
                         
                         ' 设置车辆不会减速，保持高速撞击
                         [Function].Call(Hash.SET_VEHICLE_FORWARD_SPEED, vehicle, 50.0F)
