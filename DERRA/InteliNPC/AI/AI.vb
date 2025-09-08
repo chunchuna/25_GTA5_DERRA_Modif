@@ -1145,12 +1145,22 @@ Namespace InteliNPC.AI
         Private Shared strafingPed As Ped = Nothing
         Private Shared strafeState As Integer = 0 ' 0: idle, 1: moving left, 2: moving right
         Private Shared strafeTargetPos As Vector3
-        
+
         Private Shared isZKeyDown As Boolean = False
         Private Shared isXKeyDown As Boolean = False
         Private Shared zWasPressed As Boolean = False ' Flag to track a new Z key press
         Private Shared xWasPressed As Boolean = False ' Flag to track a new X key press
         Private Shared jumpingPed As Ped = Nothing ' Ped currently performing a jump
+
+        ' --- Strafe Configuration ---
+        ' You can adjust these values to change the strafing behavior.
+        Private Shared STRAFE_SPEED As Single = 10.0F ' Movement speed during strafe. Higher is faster.
+        Private Shared STRAFE_DISTANCE As Single = 5.0F ' How far to move left/right from the starting point. Smaller distance means higher frequency over a smaller area.
+        ' --- End Strafe Configuration ---
+
+        ' --- State tracking for alternating strafe ---
+        Private Shared lastStrafingPed As Ped = Nothing
+        Private Shared lastStrafeDirection As Integer = 2 ' 1 for left, 2 for right. Start with 2 so the first press goes left.
 
         Private Shared strafeStateStartTime As Integer = 0
         Private Const STRAFE_TIMEOUT As Integer = 5000 ' 5 seconds timeout for a strafe action
@@ -1195,7 +1205,10 @@ Namespace InteliNPC.AI
 
             Dim playerPos As Vector3 = Game.Player.Character.Position
             ' TASK_GO_TO_COORD_WHILE_AIMING_AT_COORD(ped, moveX, moveY, moveZ, aimX, aimY, aimZ, moveSpeed, shoot, p9, p10, p11, firingpattern)
-            [Function].Call(Hash.TASK_GO_TO_COORD_WHILE_AIMING_AT_COORD, ped, targetPos.X, targetPos.Y, targetPos.Z, playerPos.X, playerPos.Y, playerPos.Z, 3.0F, True, 0, 0, False, CType(FiringPattern.FullAuto, UInteger))
+            ' The 8th parameter 'shoot' is set to True, and the last parameter is FullAuto FiringPattern.
+            ' This means the ped is already instructed to shoot while strafing.
+            ' If it's not shooting, it might be due to other reasons like no weapon, no ammo, or other AI interference.
+            [Function].Call(Hash.TASK_GO_TO_COORD_WHILE_AIMING_AT_COORD, ped, targetPos.X, targetPos.Y, targetPos.Z, playerPos.X, playerPos.Y, playerPos.Z, STRAFE_SPEED, True, 0, 0, False, CType(FiringPattern.FullAuto, UInteger))
         End Sub
 
         Private Shared Sub HandleStrafe()
@@ -1223,38 +1236,42 @@ Namespace InteliNPC.AI
                 Return
             End If
 
-            ' Check if movement is complete
+            ' Check if the single movement is complete. If so, reset to idle for the next command.
             If strafingPed.Position.DistanceTo(strafeTargetPos) < 1.5F Then
-                If strafeState = 1 Then
-                    ' Finished moving left, now move right
-                    strafeState = 2
-                    strafeStateStartTime = Game.GameTime ' Reset timer for the next move
-                    Dim rightVec As Vector3 = strafingPed.RightVector * 4.0F ' Move 4m right (2m from original center)
-                    strafeTargetPos = strafingPed.Position + rightVec
-                    CallNativeStrafeTask(strafingPed, strafeTargetPos)
-                Else
-                    ' Finished moving right, end of strafe
-                    strafingPed.BlockPermanentEvents = False ' Give control back to AI
-                    strafeState = 0
-                    strafingPed = Nothing ' Reset the action ped
-                End If
+                strafingPed.BlockPermanentEvents = False ' Give control back to AI
+                strafeState = 0
             End If
         End Sub
 
         Private Shared Sub HandleZPress()
-            If zWasPressed AndAlso strafeState = 0 Then
+            If zWasPressed Then
                 zWasPressed = False ' Consume the press event
 
                 Dim targetedEntity As Entity = Game.Player.TargetedEntity
                 If targetedEntity IsNot Nothing AndAlso TypeOf targetedEntity Is Ped AndAlso targetedEntity.IsAlive Then
                     strafingPed = CType(targetedEntity, Ped)
 
-                    ' State 1: move left
-                    strafeState = 1
-                    strafeStateStartTime = Game.GameTime ' Start timer
-                    Dim leftVec As Vector3 = -strafingPed.RightVector * 2.0F
-                    strafeTargetPos = strafingPed.Position + leftVec
-                    CallNativeStrafeTask(strafingPed, strafeTargetPos)
+                    ' If we are targeting a new Ped, reset the strafe direction to start with a left move.
+                    If lastStrafingPed IsNot strafingPed Then
+                        lastStrafeDirection = 2 ' Reset to start with a left strafe
+                        lastStrafingPed = strafingPed
+                    End If
+
+                    ' Alternate between moving left and right on each key press
+                    If lastStrafeDirection = 2 Then ' If last move was right (or initial state), move left
+                        strafeState = 1 ' Set state to moving left
+                        lastStrafeDirection = 1
+                        Dim leftVec As Vector3 = -strafingPed.RightVector * STRAFE_DISTANCE
+                        strafeTargetPos = strafingPed.Position + leftVec
+                        CallNativeStrafeTask(strafingPed, strafeTargetPos)
+                    Else ' If last move was left, move right
+                        strafeState = 2 ' Set state to moving right
+                        lastStrafeDirection = 2
+                        Dim rightVec As Vector3 = strafingPed.RightVector * STRAFE_DISTANCE
+                        strafeTargetPos = strafingPed.Position + rightVec
+                        CallNativeStrafeTask(strafingPed, strafeTargetPos)
+                    End If
+                    strafeStateStartTime = Game.GameTime ' Start/reset timer for this move
                 End If
             End If
         End Sub
@@ -1266,7 +1283,9 @@ Namespace InteliNPC.AI
                 Dim targetedEntity As Entity = Game.Player.TargetedEntity
                 If targetedEntity IsNot Nothing AndAlso TypeOf targetedEntity Is Ped AndAlso targetedEntity.IsAlive Then
                     jumpingPed = CType(targetedEntity, Ped)
-                     jumpingPed.Task.ClearAll()
+                    ' By clearing all previous tasks, we ensure that the jump task is not
+                    ' immediately interrupted by other AI behaviors or queued tasks.
+                    jumpingPed.Task.ClearAll()
                     jumpingPed.Task.Jump()
                 End If
             End If
@@ -1296,14 +1315,14 @@ Namespace InteliNPC.AI
             ElseIf strafingPed Is targetedPed AndAlso strafeState <> 0 AndAlso strafingPed.IsAlive Then
                 Select Case strafeState
                     Case 1
-                        statusText = ""
+                        statusText = "Task Strafe Left"
                     Case 2
-                        statusText = ""
+                        statusText = "Task Strafe Right"
                     Case Else
-                        statusText = ""
+                        statusText = "Idle"
                 End Select
             Else
-                statusText = ""
+                statusText = "Idle"
             End If
 
             ' Drawing logic
@@ -1311,8 +1330,8 @@ Namespace InteliNPC.AI
             Dim screenPos As PointF = GTA.UI.Screen.WorldToScreen(pedHeadPos)
 
             If Not screenPos.IsEmpty Then
-                Dim text As New GTA.UI.TextElement(statusText, screenPos, 0.3F, Color.White, GTA.UI.Font.ChaletLondon, GTA.UI.Alignment.Center)
-                text.Draw()
+                Dim textElement As New UI.TextElement(statusText, screenPos, 0.3F, Drawing.Color.White, UI.Font.ChaletLondon, UI.Alignment.Center)
+                textElement.Draw()
             End If
         End Sub
     End Class
