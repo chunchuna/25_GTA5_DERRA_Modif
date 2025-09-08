@@ -140,6 +140,7 @@
     <Compile Include="FrameTicker.vb" />
     <Compile Include="Toggle.vb" />
     <Compile Include="UI\MenuDialog.vb" />
+    <Compile Include="UI\OnlinePlayerList.vb" />
     <Compile Include="UpdateNotifier.vb" />
   </ItemGroup>
   <ItemGroup>

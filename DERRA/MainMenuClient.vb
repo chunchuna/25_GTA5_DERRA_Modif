@@ -16,6 +16,7 @@ Imports DERRA.Movie
 Imports DERRA.OnlinePlayer
 Imports DERRA.Structs
 Imports DERRA.Tasking
+Imports DERRA.UI
 Imports GTA
 Imports GTA.Math
 Imports GTA.Native
@@ -45,6 +46,11 @@ Public Class MainMenuClient
         ' Initialize online map mode
         Map.OnlineMapMode.ApplyMapMode()
 
+        ' Initialize online player list (will be shown when L key is pressed)
+        ' This line is causing a compile error - we don't need to explicitly create an instance
+        ' The game will automatically create an instance because OnlinePlayerList inherits from Script
+        ' Dim onlinePlayerList As New DERRA.UI.OnlinePlayerList()
+        
         FrameTicker.Add(New FakePlayerLeaveNotifierProcessor())
         pool = New ObjectPool()
         menu = New NativeMenu("DERRA") With {.Description = "DERRA"}
@@ -75,6 +81,7 @@ Public Class MainMenuClient
         'AddMenu("~b~安保人员", "访问安保人员派遣菜单", AddressOf BotActorsDialog.PopUp)
         AddMenu("派出安保护送车辆", "派遣4名士兵前往玩家位置支援", AddressOf DispatchEmergencySquard)
         'AddMenu("投放重甲单位", "重甲单位或故事模式角色任意一方死亡将自动结束", AddressOf HeavyArmorService.StartHeavyArmor)
+        AddMenu("查看在线玩家列表(L)", "按L键查看所有在线玩家列表", Sub() UI.Screen.ShowSubtitle("按L键查看在线玩家列表", 3000))
         AddMenu("运行实体清理", "释放所有由当前菜单创建的对象", Sub()
                                                 If BotPlayerOptions.CanBotRegenerate.Enabled OrElse BotPlayerOptions.AutoGenerateBots.Enabled Then
                                                     menu.Visible = False
