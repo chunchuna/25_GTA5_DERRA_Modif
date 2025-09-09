@@ -278,7 +278,7 @@ Namespace InteliNPC.AI
             ped.SetConfigFlag(PedConfigFlagToggles.DisableExplosionReactions, True)
             [Function].Call(Hash.STOP_PED_SPEAKING, ped, True)
             [Function].Call(Hash.DISABLE_PED_PAIN_AUDIO, ped, True)
-            [Function].Call(Hash.SET_AI_WEAPON_DAMAGE_MODIFIER, ped, 0.05F) ' 将AI伤害降低到50%
+            '[Function].Call(Hash.SET_AI_WEAPON_DAMAGE_MODIFIER, ped, 0.9F) ' 将AI伤害降低到50%
             ped.CombatAbility = CombatAbility.Professional
             ped.SetCombatAttribute(CombatAttributes.CanUseCover, False)
             ped.SetCombatAttribute(CombatAttributes.CanDoDrivebys, True)
@@ -1076,7 +1076,9 @@ Namespace InteliNPC.AI
             Dim bot As Bot = New Bot(ped, GetNewBotName(), GetCommonDecisions(), EmptyDecision.Default.GetAction(Nothing))
             bot.Ped.CombatAbility = CombatAbility.Professional
             bot.Ped.SetCombatAttribute(CombatAttributes.PerfectAccuracy, True)
-            bot.OwnedWeapons.Give(WeaponHash.Pistol, 2000)
+            ' 给予连发武器而不是单发手枪
+            bot.OwnedWeapons.Give(WeaponHash.APPistol, 10) ' 使用全自动手枪替代普通手枪
+            bot.Ped.Weapons.Give(WeaponHash.APPistol, 9999, True, True).Tint = PickEnum(Of WeaponTint)() ' 确保有足够弹药并添加随机涂装
             bot.Money = 0 ' Set to 0 to prevent money drops
             bot.Ped.Money = 0 ' Explicitly set Ped.Money to 0
             EntityManagement.AddController(bot)
@@ -1158,19 +1160,29 @@ Namespace InteliNPC.AI
             'bot.Ped.CombatAbility = CombatAbility.Professional
             'bot.Ped.SetCombatAttribute(CombatAttributes.PerfectAccuracy, True)
             bot.Money = 0 ' Set to 0 to prevent money drops, but internal tracking will still work
-            '初始化武器
-            Dim vehicle_weapon As WeaponHash = Pick({WeaponHash.HeavyPistol, WeaponHash.PistolMk2, WeaponHash.APPistol, WeaponHash.MiniSMG, WeaponHash.TacticalSMG})
-            bot.OwnedWeapons.Give(vehicle_weapon, 99999) '基本上这些武器不在载具上是不会选的
-            bot.OwnedWeapons.Give(WeaponHash.AssaultShotgun, 20)
-            Dim onfoot_weapon As WeaponHash = Pick({WeaponHash.HeavyRifle, WeaponHash.CarbineRifle, WeaponHash.AssaultRifle, WeaponHash.CarbineRifleMk2, WeaponHash.AssaultrifleMk2, WeaponHash.ServiceCarbine, WeaponHash.MilitaryRifle})
-            bot.OwnedWeapons.Give(onfoot_weapon, 31)
+            '初始化武器 - 只使用连发武器
+            ' 载具武器 - 只使用连发手枪和冲锋枪
+            Dim vehicle_weapon As WeaponHash = Pick({WeaponHash.APPistol, WeaponHash.MiniSMG, WeaponHash.TacticalSMG, WeaponHash.MicroSMG, WeaponHash.MachinePistol})
+            bot.OwnedWeapons.Give(vehicle_weapon, 10) '基本上这些武器不在载具上是不会选的
+            
+            ' 步行武器 - 使用各种连发步枪
+            Dim onfoot_weapon As WeaponHash = Pick({WeaponHash.HeavyRifle, WeaponHash.CarbineRifle, WeaponHash.AssaultRifle, WeaponHash.CarbineRifleMk2, WeaponHash.AssaultrifleMk2, WeaponHash.ServiceCarbine, WeaponHash.MilitaryRifle, WeaponHash.AdvancedRifle, WeaponHash.SpecialCarbine, WeaponHash.BullpupRifle})
+            bot.OwnedWeapons.Give(onfoot_weapon, 30)
+            
+            ' 额外武器 - 机枪类
+            Dim mg_weapon As WeaponHash = Pick({WeaponHash.CombatMG, WeaponHash.MG, WeaponHash.CombatMGMk2, WeaponHash.Gusenberg})
+            bot.OwnedWeapons.Give(mg_weapon, 50)
 
-            'rocker武器
-            Dim rocket_weapon As WeaponHash = Pick({WeaponHash.Widowmaker, WeaponHash.Minigun, WeaponHash.RPG, WeaponHash.Railgun, WeaponHash.GrenadeLauncher})
-            bot.OwnedWeapons.Give(rocket_weapon, 45)
+            ' 重型武器 - 只使用连发的重武器
+            Dim rocket_weapon As WeaponHash = Pick({WeaponHash.Widowmaker, WeaponHash.Minigun, WeaponHash.UnholyHellbringer})
+            bot.OwnedWeapons.Give(rocket_weapon, 70)
             bot.OwnedWeapons.KnownRocketWeapons.Add(rocket_weapon)
-
-            bot.OwnedWeapons.Give(WeaponHash.HeavySniper, 50)
+            
+            ' 确保AI有足够的弹药并设置随机武器涂装
+            bot.Ped.Weapons.Give(vehicle_weapon, 9999, True, True).Tint = PickEnum(Of WeaponTint)()
+            bot.Ped.Weapons.Give(onfoot_weapon, 9999, True, True).Tint = PickEnum(Of WeaponTint)()
+            bot.Ped.Weapons.Give(mg_weapon, 9999, True, True).Tint = PickEnum(Of WeaponTint)()
+            bot.Ped.Weapons.Give(rocket_weapon, 9999, True, True).Tint = PickEnum(Of WeaponTint)()
             '初始化载具
             'bot.OwnedVehicles.Add(VehicleHash.Rhino, True)
             'VehicleBlipDisplay.Table.Item(VehicleHash.Rhino) = New BlipDisplay(BlipSprite.Tank, True)
@@ -1270,10 +1282,10 @@ Namespace InteliNPC.AI
         Private Const STRAFE_SPEED As Single = 10.0F ' 位移速度
         Private Const STRAFE_INTERVAL_MIN As Integer = 500 ' 最短位移间隔(毫秒)
         Private Const STRAFE_INTERVAL_MAX As Integer = 600 ' 最长位移间隔(毫秒)
-        Private Const JUMP_CHANCE As Single = 0.08F ' 每次更新跳跃的概率
-        Private Const COMBAT_DISTANCE_THRESHOLD As Single = 50.0F ' 激活战斗行为的距离阈值
+        Private Const JUMP_CHANCE As Single = 0.5F ' 每次更新跳跃的概率
+        Private Const COMBAT_DISTANCE_THRESHOLD As Single = 15.0F ' 激活战斗行为的距离阈值
         Private Const ROLL_CHANCE As Single = 0.01F ' 每次更新翻滚的概率
-        Private Const RANDOM_SHOOT_CHANCE As Single = 0.09F ' 随机射击的概率
+        Private Const RANDOM_SHOOT_CHANCE As Single = 0.9F ' 随机射击的概率
         Private Const WEAPON_SWITCH_CHANCE As Single = 0.007F ' 随机切换武器的概率
 
         ' 状态变量
@@ -1299,6 +1311,14 @@ Namespace InteliNPC.AI
         End Sub
 
         ' 处理战斗行为
+        Private ReadOnly IDLE_RUN_CHANCE As Single = 1F ' 非战斗状态下随机跑动的概率
+        Private ReadOnly IDLE_JUMP_CHANCE As Single = 0.1F ' 非战斗状态下随机跳跃的概率
+        Private m_lastIdleActionTime As Integer = 0 ' 上次非战斗动作的时间
+        Private m_isPerformingIdleAction As Boolean = False ' 是否正在执行非战斗随机动作
+        Private m_idleActionEndTime As Integer = 0 ' 非战斗随机动作结束时间
+        Private m_idleJumpCounter As Integer = 0 ' 非战斗状态下跳跃计数
+        Private m_maxIdleJumps As Integer = 0 ' 非战斗状态下最大跳跃次数
+        
         Public Sub Process()
             ' 检查是否有战斗目标
             m_combatTarget = m_bot.Ped.CombatTarget
@@ -1307,36 +1327,150 @@ Namespace InteliNPC.AI
             ' 这确保了PED会更积极地寻找并攻击玩家
             DetectPotentialTargets()
             
-            ' 如果没有战斗目标或者目标已死亡，直接返回
-            If m_combatTarget Is Nothing OrElse Not m_combatTarget.Exists() OrElse m_combatTarget.IsDead Then
-                Return
+            ' 检查是否在战斗距离内
+            Dim inCombatRange As Boolean = False
+            If m_combatTarget IsNot Nothing AndAlso m_combatTarget.Exists() AndAlso m_combatTarget.IsAlive Then
+                Dim distanceToTarget As Single = m_bot.Ped.Position.DistanceTo(m_combatTarget.Position)
+                inCombatRange = (distanceToTarget <= COMBAT_DISTANCE_THRESHOLD)
             End If
             
-            ' 检查距离是否在战斗阈值内
-            Dim distanceToTarget As Single = m_bot.Ped.Position.DistanceTo(m_combatTarget.Position)
-            If distanceToTarget > COMBAT_DISTANCE_THRESHOLD Then
-                Return
-            End If
-            
-            ' 如果在载具中不执行战斗行为
+            ' 如果在载具中不执行任何特殊行为
             If m_bot.Ped.IsInVehicle() Then
                 Return
             End If
             
-            ' 处理左右位移
-            ProcessStrafe()
+            ' 根据是否在战斗距离内执行不同的行为
+            If inCombatRange Then
+                ' 在战斗距离内 - 执行战斗行为
+                
+                ' 处理左右位移
+                ProcessStrafe()
+                
+                ' 处理随机跳跃
+                ProcessJump()
+                
+                ' 处理随机翻滚
+                ProcessRoll()
+                
+                ' 处理随机射击
+                ProcessRandomShooting()
+                
+                ' 处理随机切换武器
+                ProcessWeaponSwitch()
+                
+                ' 重置非战斗状态
+                m_isPerformingIdleAction = False
+            Else
+                ' 不在战斗距离内 - 执行疯狂随机行为
+                ProcessIdleBehavior()
+            End If
+        End Sub
+        
+        ' 处理非战斗状态下的随机行为
+        Private Sub ProcessIdleBehavior()
+            ' 检查是否正在执行随机动作
+            If m_isPerformingIdleAction Then
+                ' 检查随机动作是否完成
+                If Game.GameTime > m_idleActionEndTime Then
+                    m_isPerformingIdleAction = False
+                    ' 立即开始新的随机行为
+                    StartNewIdleAction()
+                End If
+                
+                ' 如果正在执行跳跃序列，处理跳跃
+                If m_idleJumpCounter > 0 AndAlso Not m_bot.Ped.IsJumping AndAlso Not m_bot.Ped.IsGettingUp Then
+                    ' 确保有足够的间隔时间
+                    If Game.GameTime - m_lastIdleActionTime > 500 Then
+                        m_bot.Ped.Task.Jump()
+                        m_lastIdleActionTime = Game.GameTime
+                        m_idleJumpCounter -= 1
+                    End If
+                End If
+                
+                Return
+            End If
             
-            ' 处理随机跳跃
-            ProcessJump()
+            ' 如果没有正在执行的动作，开始新的随机行为
+            StartNewIdleAction()
+        End Sub
+        
+        ' 开始新的非战斗随机行为
+        Private Sub StartNewIdleAction()
+            ' 随机决定行为类型
+            Dim actionRoll As Double = m_rng.NextDouble()
             
-            ' 处理随机翻滚
-            ProcessRoll()
+            ' 随机跳跃 (较低概率)
+            If actionRoll < IDLE_JUMP_CHANCE Then
+                PerformIdleJump()
+                Return
+            End If
             
-            ' 处理随机射击
-            ProcessRandomShooting()
+            ' 随机疯狂跑动 (较高概率)
+            PerformIdleRunning()
+        End Sub
+        
+        ' 执行非战斗状态下的随机跳跃
+        Private Sub PerformIdleJump()
+            ' 设置随机动作状态
+            m_isPerformingIdleAction = True
+            m_lastIdleActionTime = Game.GameTime
+            m_idleActionEndTime = Game.GameTime + 2000 ' 给予足够时间完成跳跃
             
-            ' 处理随机切换武器
-            ProcessWeaponSwitch()
+            ' 随机决定跳跃1-2次
+            m_idleJumpCounter = m_rng.Next(1, 3) ' 1或2次
+            m_maxIdleJumps = m_idleJumpCounter
+            
+            ' 立即执行第一次跳跃
+            m_bot.Ped.Task.Jump()
+            m_idleJumpCounter -= 1
+        End Sub
+        
+        ' 执行非战斗状态下的疯狂跑动
+        Private Sub PerformIdleRunning()
+            ' 设置随机动作状态
+            m_isPerformingIdleAction = True
+            m_lastIdleActionTime = Game.GameTime
+            ' 较长的持续时间，确保AI一直处于移动状态
+            m_idleActionEndTime = Game.GameTime + m_rng.Next(10000, 20000) ' 10秒-20秒
+            
+            ' 生成随机跑动方向
+            Dim randomAngle As Single = CSng(m_rng.NextDouble() * 360) ' 0-360度的随机角度
+            Dim randomDirection As Vector3 = New Vector3(
+                CSng(System.Math.Sin(randomAngle * System.Math.PI / 180)),
+                CSng(System.Math.Cos(randomAngle * System.Math.PI / 180)),
+                0)
+                
+            ' 计算目标位置(距离10-30米，更远的距离)
+            Dim runDistance As Single = 50.0F + CSng(m_rng.NextDouble() * 20.0F)
+            Dim targetPosition As Vector3 = m_bot.Ped.Position + (randomDirection * runDistance)
+            
+            ' 确保Ped手中有武器
+            If Not m_bot.Ped.Weapons.Current.IsPresent Then
+                ' 如果没有武器，尝试选择一个
+                Dim availableWeapons As New List(Of WeaponHash)()
+                For Each weaponHash As WeaponHash In [Enum].GetValues(GetType(WeaponHash))
+                    If m_bot.Ped.Weapons.HasWeapon(weaponHash) Then
+                        availableWeapons.Add(weaponHash)
+                    End If
+                Next
+                
+                If availableWeapons.Count > 0 Then
+                    m_bot.Ped.Weapons.Select(availableWeapons(m_rng.Next(0, availableWeapons.Count)))
+                End If
+            End If
+            
+            ' 执行疯狂跑动任务 - 使用更高的速度
+            [Function].Call(Hash.TASK_GO_TO_COORD_ANY_MEANS,
+                m_bot.Ped,
+                targetPosition.X, targetPosition.Y, targetPosition.Z,
+                5.0F, ' 跑动速度 (5.0 = 最大冲刺)
+                0, ' 未知参数
+                False, ' 不停止在红绿灯
+                786603, ' 驾驶标志(激进驾驶)
+                2.0F) ' 最大速度倍数
+                
+            ' 设置Ped为最大跑步状态
+            [Function].Call(Hash.SET_PED_MOVE_RATE_OVERRIDE, m_bot.Ped, 2.0F) ' 增加移动速度
         End Sub
         
         ' 检测潜在目标
@@ -1536,16 +1670,48 @@ Namespace InteliNPC.AI
         End Sub
         
         ' 处理随机跳跃行为
+        Private ReadOnly JUMP_COUNT As Integer = 5 ' 连续跳跃次数
+        Private m_jumpCounter As Integer = 0 ' 当前跳跃计数
+        Private m_isMultiJumping As Boolean = False ' 是否正在执行连续跳跃
+        Private m_lastJumpTime As Integer = 0 ' 上次跳跃时间
+        
         Private Sub ProcessJump()
-            ' 如果AI正在跳跃或者正在起身，不执行跳跃
+            ' 如果正在执行连续跳跃
+            If m_isMultiJumping Then
+                ' 如果AI正在跳跃或者正在起身，等待
+                If m_bot.Ped.IsJumping OrElse m_bot.Ped.IsGettingUp Then
+                    Return
+                End If
+                
+                ' 检查是否可以执行下一次跳跃
+                If Game.GameTime - m_lastJumpTime > 500 Then ' 500ms间隔
+                    ' 执行下一次跳跃
+                    m_bot.Ped.Task.Jump()
+                    m_lastJumpTime = Game.GameTime
+                    m_jumpCounter += 1
+                    
+                    ' 检查是否完成所有跳跃
+                    If m_jumpCounter >= JUMP_COUNT Then
+                        m_isMultiJumping = False
+                        m_jumpCounter = 0
+                    End If
+                End If
+                Return
+            End If
+            
+            ' 如果AI正在跳跃或者正在起身，不开始新的跳跃序列
             If m_bot.Ped.IsJumping OrElse m_bot.Ped.IsGettingUp Then
                 Return
             End If
             
-            ' 随机决定是否跳跃
+            ' 随机决定是否开始连续跳跃
             If m_rng.NextDouble() < JUMP_CHANCE Then
-                ' 执行跳跃任务
-                m_bot.Ped.Task.Jump()
+                ' 开始连续跳跃
+                m_isMultiJumping = True
+                m_jumpCounter = 0
+                m_lastJumpTime = Game.GameTime
+                m_bot.Ped.Task.Jump() ' 执行第一次跳跃
+                m_jumpCounter += 1
             End If
         End Sub
         
@@ -1572,17 +1738,137 @@ Namespace InteliNPC.AI
         End Sub
         
         ' 处理随机射击行为
+        ' 随机行为概率设置 - 可以在这里调整概率值
+        Private ReadOnly RANDOM_AIM_CHANCE As Single = 0.35F ' 随机瞄准的概率
+        Private ReadOnly RANDOM_RUN_CHANCE As Single = 0.9F ' 随机持枪跑动的概率
+        Private m_lastRandomActionTime As Integer = 0 ' 上次随机动作的时间
+        Private m_isPerformingRandomAction As Boolean = False ' 是否正在执行随机动作
+        Private m_randomActionEndTime As Integer = 0 ' 随机动作结束时间
+        
         Private Sub ProcessRandomShooting()
             ' 如果没有武器或者不在战斗中，不执行随机射击
             If Not m_bot.Ped.Weapons.Current.IsPresent OrElse Not m_bot.Ped.IsInCombat Then
                 Return
             End If
             
-            ' 随机决定是否射击
+            ' 检查是否正在执行随机动作
+            If m_isPerformingRandomAction Then
+                ' 检查随机动作是否完成
+                If Game.GameTime > m_randomActionEndTime Then
+                    m_isPerformingRandomAction = False
+                    ' 恢复正常战斗行为
+                    If m_combatTarget IsNot Nothing AndAlso m_combatTarget.Exists() AndAlso m_combatTarget.IsAlive Then
+                        m_bot.Ped.Task.FightAgainst(m_combatTarget)
+                    End If
+                End If
+                Return
+            End If
+            
+            ' 确保随机动作之间有足够的冷却时间(至少3秒)
+            If Game.GameTime - m_lastRandomActionTime < 10000 Then
+                ' 执行正常的随机射击
+                If m_rng.NextDouble() < RANDOM_SHOOT_CHANCE Then
+                    ' 执行射击任务
+                    [Function].Call(Hash.TASK_SHOOT_AT_ENTITY, m_bot.Ped, m_combatTarget, 500, CType(FiringPattern.FullAuto, UInteger))
+                End If
+                Return
+            End If
+            
+            ' 随机决定行为类型
+            Dim actionRoll As Double = m_rng.NextDouble()
+            
+            ' 随机瞄准并射击
+            If actionRoll < RANDOM_AIM_CHANCE Then
+                PerformRandomAiming()
+                Return
+            End If
+            
+            ' 随机持枪跑动
+            If actionRoll < RANDOM_AIM_CHANCE + RANDOM_RUN_CHANCE Then
+                PerformRandomRunning()
+                Return
+            End If
+            
+            ' 执行正常的随机射击
             If m_rng.NextDouble() < RANDOM_SHOOT_CHANCE Then
                 ' 执行射击任务
                 [Function].Call(Hash.TASK_SHOOT_AT_ENTITY, m_bot.Ped, m_combatTarget, 500, CType(FiringPattern.FullAuto, UInteger))
             End If
+        End Sub
+        
+        ' 执行随机瞄准
+        Private Sub PerformRandomAiming()
+            ' 设置随机动作状态
+            m_isPerformingRandomAction = True
+            m_lastRandomActionTime = Game.GameTime
+            m_randomActionEndTime = Game.GameTime + m_rng.Next(3000, 10000) ' 随机持续0.8-1.5秒
+            
+            ' 生成随机瞄准位置
+            Dim randomOffset As Vector3 = New Vector3(
+                m_rng.Next(-10, 11),  ' X方向随机偏移
+                m_rng.Next(-10, 11),  ' Y方向随机偏移
+                m_rng.Next(-5, 15))   ' Z方向随机偏移，更倾向于向上(天空)
+                
+            ' 计算瞄准位置
+            Dim aimPosition As Vector3 = m_bot.Ped.Position + randomOffset
+            
+            ' 随机决定是否射击
+            Dim shouldShoot As Boolean = m_rng.NextDouble() < 0.7 ' 70%概率射击
+            
+            ' 执行瞄准任务
+            [Function].Call(Hash.TASK_AIM_GUN_AT_COORD, 
+                m_bot.Ped, 
+                aimPosition.X, aimPosition.Y, aimPosition.Z, 
+                m_randomActionEndTime - Game.GameTime, ' 持续时间(毫秒)
+                shouldShoot, ' 是否射击
+                False) ' 不强制瞄准
+        End Sub
+        
+        ' 执行随机持枪跑动
+        Private Sub PerformRandomRunning()
+            ' 设置随机动作状态
+            m_isPerformingRandomAction = True
+            m_lastRandomActionTime = Game.GameTime
+            m_randomActionEndTime = Game.GameTime + m_rng.Next(1000, 2500) ' 随机持续1-2.5秒
+            
+            ' 生成随机跑动方向
+            Dim randomAngle As Single = CSng(m_rng.NextDouble() * 360) ' 0-360度的随机角度
+            Dim randomDirection As Vector3 = New Vector3(
+                CSng(System.Math.Sin(randomAngle * System.Math.PI / 180)),
+                CSng(System.Math.Cos(randomAngle * System.Math.PI / 180)),
+                0)
+                
+            ' 计算目标位置(距离5-15米)
+            Dim runDistance As Single = 5.0F + CSng(m_rng.NextDouble() * 10.0F)
+            Dim targetPosition As Vector3 = m_bot.Ped.Position + (randomDirection * runDistance)
+            
+            ' 确保Ped手中有武器
+            If Not m_bot.Ped.Weapons.Current.IsPresent Then
+                ' 如果没有武器，尝试选择一个
+                Dim availableWeapons As New List(Of WeaponHash)()
+                For Each weaponHash As WeaponHash In [Enum].GetValues(GetType(WeaponHash))
+                    If m_bot.Ped.Weapons.HasWeapon(weaponHash) Then
+                        availableWeapons.Add(weaponHash)
+                    End If
+                Next
+                
+                If availableWeapons.Count > 0 Then
+                    m_bot.Ped.Weapons.Select(availableWeapons(m_rng.Next(0, availableWeapons.Count)))
+                End If
+            End If
+            
+            ' 执行持枪跑动任务 - 使用TASK_GO_TO_COORD_ANY_MEANS而不是瞄准版本
+            [Function].Call(Hash.TASK_GO_TO_COORD_ANY_MEANS,
+                m_bot.Ped,
+                targetPosition.X, targetPosition.Y, targetPosition.Z,
+                3.0F, ' 跑动速度 (3.0 = 冲刺)
+                0, ' 未知参数
+                False, ' 不停止在红绿灯
+                786603, ' 驾驶标志(激进驾驶)
+                1.0F) ' 最大速度倍数
+                
+            ' 设置Ped为跑步状态
+            [Function].Call(Hash.SET_PED_MOVE_RATE_OVERRIDE, m_bot.Ped, 1.5F) ' 增加移动速度
         End Sub
         
         ' 处理随机切换武器
