@@ -182,6 +182,8 @@ Namespace InteliNPC.AI
         Implements IEntityController, ITickProcessable
         Private Shared ReadOnly Rng As New Random()
         Private Shared ReadOnly BlipColorMap As New Dictionary(Of BlipColor, (Drawing As System.Drawing.Color, Prefix As String))
+        Private Shared ReadOnly BotRelationshipGroups As New Dictionary(Of String, RelationshipGroup)()
+        
         Shared Sub New()
             BlipColorMap = New Dictionary(Of BlipColor, (Drawing As Drawing.Color, Prefix As String)) From {
                 {BlipColor.WhiteNotPure, (Drawing.Color.WhiteSmoke, "~s~")},
@@ -317,9 +319,8 @@ Namespace InteliNPC.AI
             ' 设置为全自动射击模式
             ped.FiringPattern = FiringPattern.FullAuto
             
-            ' 增强对玩家的敌对性
-            ' 默认设置为非友好，增加与玩家的敌对性
-            ped.RelationshipGroup = MissionHelper.EnermyRelationshipGroup
+            ' 创建唯一的关系组并设置为敌对
+            CreateUniqueRelationshipGroup()
             
             ' 增加听觉和视觉范围，使AI能更远距离发现玩家
             ped.SeeingRange = 1000.0F
@@ -421,9 +422,12 @@ Namespace InteliNPC.AI
             Set(value As Boolean)
                 m_isFriend = value
                 If value Then
-                    Ped.RelationshipGroup = FriendRelationshipGroup.Value
+                    ' 即使设置为盟友，也不会改变与其他Bot的敌对关系
+                    ' 只改变与玩家的关系
+                    Ped.RelationshipGroup.SetRelationshipBetweenGroups(PlayerPed.RelationshipGroup, Relationship.Respect)
                 Else
-                    Ped.RelationshipGroup = RelationshipGroupHash.NoRelationship
+                    ' 恢复与玩家的敌对关系
+                    Ped.RelationshipGroup.SetRelationshipBetweenGroups(PlayerPed.RelationshipGroup, Relationship.Hate)
                 End If
             End Set
         End Property
@@ -739,6 +743,10 @@ Namespace InteliNPC.AI
                         If killerBot IsNot Nothing Then
                             ' 被其他AI击杀
                             Notification.PostTicker($" {killerBot.ColoredName}  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName}。 ", False)
+                            
+                            ' 不再设置友好关系，保持所有Bot互相敌对
+                            ' 增加被击杀Bot的击杀计数
+                            Versus.PlayerScore(killerBot.Name) += 1
                         ElseIf Not String.IsNullOrWhiteSpace(killer_name) Then
                             ' 被其他实体击杀，但有名字
                             Notification.PostTicker($" ~h~{killer_name}~h~  <font size='9' color='rgba(139,139,139,0.7)'>杀了</font>  {Me.ColoredName}。", False)
@@ -776,7 +784,10 @@ Namespace InteliNPC.AI
                         Ped.CloneToTarget(bot.Ped)
                         bot.Ped.ClearBloodDamage()
                         bot.Ped.ClearVisibleDamage()
-                        bot.IsAlly = IsAlly
+                        
+                        ' 不再继承盟友状态，确保所有Bot互相敌对
+                        ' bot.IsAlly = IsAlly
+                        
                         bot.MaxBeKilledTimes = MaxBeKilledTimes
                         bot.KilledByPlayer = KilledByPlayer
                         bot.Accuracy = Accuracy
@@ -901,6 +912,30 @@ Namespace InteliNPC.AI
             End If
             Return CanDispose()
         End Function
+
+        ' 创建唯一的关系组并设置所有Bot互相敌对
+        Public Sub CreateUniqueRelationshipGroup()
+            ' 创建唯一的关系组名称
+            Dim groupName As String = $"bot_{Name}_{GetHashCode()}"
+            
+            ' 创建新的关系组
+            Dim botGroup As RelationshipGroup = World.AddRelationshipGroup(groupName)
+            
+            ' 将Bot添加到此关系组
+            Ped.RelationshipGroup = botGroup
+            
+            ' 设置与玩家的关系为敌对
+            botGroup.SetRelationshipBetweenGroups(PlayerPed.RelationshipGroup, Relationship.Hate)
+            
+            ' 设置与其他所有Bot的关系为敌对
+            For Each existingGroup In BotRelationshipGroups.Values
+                botGroup.SetRelationshipBetweenGroups(existingGroup, Relationship.Hate)
+                existingGroup.SetRelationshipBetweenGroups(botGroup, Relationship.Hate)
+            Next
+            
+            ' 将新创建的关系组添加到字典中
+            BotRelationshipGroups(groupName) = botGroup
+        End Sub
     End Class
     Public Class BotFactory
         Private Shared ReadOnly Rng As New System.Random()
@@ -1046,7 +1081,13 @@ Namespace InteliNPC.AI
             bot.Ped.Money = 0 ' Explicitly set Ped.Money to 0
             EntityManagement.AddController(bot)
             FrameTicker.Add(bot)
-            bot.IsAlly = True
+            
+            ' 不再设置为盟友，确保所有Bot互相敌对
+            ' bot.IsAlly = True
+            
+            ' 创建唯一的关系组，确保与其他Bot敌对
+            bot.CreateUniqueRelationshipGroup()
+            
             Pool.Add(bot)
         End Sub
         Private Shared Sub SetRandomFace(ped As Ped)
@@ -1146,6 +1187,10 @@ Namespace InteliNPC.AI
 
             bot.OwnedVehicles.Add(VehicleHash.Phantom2, False)
             VehicleBlipDisplay.Table.Item(VehicleHash.Phantom2) = New BlipDisplay(BlipSprite.PhantomWedge, False)
+            
+            ' 创建唯一的关系组，确保与其他Bot敌对
+            bot.CreateUniqueRelationshipGroup()
+            
             EntityManagement.AddController(bot)
             FrameTicker.Add(bot)
             Pool.Add(bot)
@@ -1208,7 +1253,10 @@ Namespace InteliNPC.AI
                 Script.Wait(1000)
                 Return Regenerate(ped_model, approximate_location, name)
             End If
-            Return CreateAdvancedBot(ped, name)
+            Dim bot = CreateAdvancedBot(ped, name)
+            ' 确保重生的Bot与所有其他Bot保持敌对关系
+            bot.CreateUniqueRelationshipGroup()
+            Return bot
         End Function
     End Class
 
@@ -1300,11 +1348,11 @@ Namespace InteliNPC.AI
                 Return
             End If
             
-            ' 检测附近的玩家或其他Bot
+            ' 检测附近的玩家
             Dim playerPed As Ped = Game.Player.Character
             If playerPed.Exists() AndAlso playerPed.IsAlive AndAlso Not m_bot.IsAlly Then
                 Dim distanceToPlayer As Single = m_bot.Ped.Position.DistanceTo(playerPed.Position)
-                ' 增加主动攻击概率，从10%提高到50%
+                ' 增加主动攻击概率，从10%提高到90%
                 If distanceToPlayer < COMBAT_DISTANCE_THRESHOLD AndAlso m_rng.NextDouble() < 0.9 Then
                     ' 主动攻击玩家
                     m_bot.Ped.Task.FightAgainst(playerPed)
@@ -1313,6 +1361,24 @@ Namespace InteliNPC.AI
                     m_bot.Ped.BlockPermanentEvents = True
                 End If
             End If
+            
+            ' 检测附近的其他Bot
+            For Each nearbyPed As Ped In World.GetNearbyPeds(m_bot.Ped.Position, COMBAT_DISTANCE_THRESHOLD)
+                ' 确保不是自己，且目标还活着
+                If nearbyPed IsNot m_bot.Ped AndAlso nearbyPed.Exists() AndAlso nearbyPed.IsAlive Then
+                    ' 检查是否是另一个Bot
+                    If BotFactory.IsBot(nearbyPed) Then
+                        ' 90%的概率主动攻击其他Bot
+                        If m_rng.NextDouble() < 0.9 Then
+                            m_bot.Ped.Task.FightAgainst(nearbyPed)
+                            ' 确保AI不会停止战斗
+                            m_bot.Ped.SetCombatAttribute(CombatAttributes.AlwaysFight, True)
+                            m_bot.Ped.BlockPermanentEvents = True
+                            Return ' 找到一个目标后就返回
+                        End If
+                    End If
+                End If
+            Next
         End Sub
         
         ' 检测载具撞击目标
@@ -1358,6 +1424,7 @@ Namespace InteliNPC.AI
                             ' 设置驾驶员更激进
                             m_bot.Ped.DrivingAggressiveness = 1.0F
                             m_bot.Ped.VehicleDrivingFlags = VehicleDrivingFlags.AvoidVehicles Or VehicleDrivingFlags.AllowGoingWrongWay Or VehicleDrivingFlags.AllowMedianCrossing
+                            Return
                         End If
                     Else
                         ' 如果玩家在步行，直接朝玩家位置驾驶
@@ -1369,9 +1436,47 @@ Namespace InteliNPC.AI
                         ' 设置驾驶员更激进
                         m_bot.Ped.DrivingAggressiveness = 1.0F
                         m_bot.Ped.VehicleDrivingFlags = VehicleDrivingFlags.AvoidVehicles Or VehicleDrivingFlags.AllowGoingWrongWay Or VehicleDrivingFlags.AllowMedianCrossing
+                        Return
                     End If
                 End If
             End If
+            
+            ' 检测附近的其他Bot
+            For Each nearbyPed As Ped In World.GetNearbyPeds(vehicle.Position, 150.0F)
+                ' 确保不是自己，且目标还活着
+                If nearbyPed IsNot m_bot.Ped AndAlso nearbyPed.Exists() AndAlso nearbyPed.IsAlive Then
+                    ' 检查是否是另一个Bot
+                    If BotFactory.IsBot(nearbyPed) Then
+                        ' 80%的概率主动撞击其他Bot
+                        If m_rng.NextDouble() < 0.8 Then
+                            ' 增加车辆速度，使撞击更有力
+                            Dim currentSpeed As Single = vehicle.Speed
+                            If currentSpeed < 20.0F Then
+                                vehicle.Speed = 15.0F
+                            End If
+                            
+                            ' 如果目标在载具中，撞击目标的载具
+                            If nearbyPed.IsInVehicle() Then
+                                Dim targetVehicle As Vehicle = nearbyPed.CurrentVehicle
+                                If targetVehicle IsNot Nothing Then
+                                    [Function].Call(Hash.TASK_VEHICLE_MISSION, m_bot.Ped, vehicle, targetVehicle, 13, 30.0F, 786603, 10.0F, 5.0F, True)
+                                    [Function].Call(Hash.SET_VEHICLE_FORWARD_SPEED, vehicle, 40.0F)
+                                    m_bot.Ped.DrivingAggressiveness = 1.0F
+                                    m_bot.Ped.VehicleDrivingFlags = VehicleDrivingFlags.AvoidVehicles Or VehicleDrivingFlags.AllowGoingWrongWay Or VehicleDrivingFlags.AllowMedianCrossing
+                                    Return
+                                End If
+                            Else
+                                ' 如果目标在步行，直接朝目标位置驾驶
+                                [Function].Call(Hash.TASK_VEHICLE_MISSION, m_bot.Ped, vehicle, nearbyPed, 13, 50.0F, 786603, 10.0F, 5.0F, True)
+                                [Function].Call(Hash.SET_VEHICLE_FORWARD_SPEED, vehicle, 50.0F)
+                                m_bot.Ped.DrivingAggressiveness = 1.0F
+                                m_bot.Ped.VehicleDrivingFlags = VehicleDrivingFlags.AvoidVehicles Or VehicleDrivingFlags.AllowGoingWrongWay Or VehicleDrivingFlags.AllowMedianCrossing
+                                Return
+                            End If
+                        End If
+                    End If
+                End If
+            Next
         End Sub
         
         ' 处理左右位移行为
